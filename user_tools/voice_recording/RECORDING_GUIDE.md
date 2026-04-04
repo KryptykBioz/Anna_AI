@@ -51,7 +51,7 @@ python interactive_record.py
 5. All prompts combined into one sample
 6. Quality analysis
 7. Listen to playback (optional)
-8. Save to `./personality/voice/{username}_voice_sample.wav`
+8. Save to `./personality/voice/{username}_voice_sample.mp3`
 
 ### Example Session
 
@@ -137,7 +137,7 @@ python guided_record.py
 5. Review quality analysis
 6. Listen to playback (optional)
 7. Accept or re-record
-8. Save to `./personality/voice/{username}_voice_sample.wav`
+8. Save to `./personality/voice/{username}_voice_sample.mp3`
 
 ### Prompt Sets
 
@@ -331,7 +331,7 @@ Starting in 3...
 
 [SUCCESS] Good audio level (peak: 0.423)
 
-[SAVED] ./personality/voice/john_voice_sample.wav
+[SAVED] ./personality/voice/john_voice_sample.mp3
 [SIZE] 172.3 KB
 
 [NEXT] Set USE_SPEAKER_VERIFICATION = True in controls.py
@@ -462,12 +462,12 @@ SPEAKER_VERIFICATION_THRESHOLD = 0.75
 
 Check that file exists:
 ```bash
-ls -lh ./personality/voice/{username}_voice_sample.wav
+ls -lh ./personality/voice/{username}_voice_sample.mp3
 ```
 
 Should output something like:
 ```
--rw-r--r-- 1 user user 172K Feb 7 10:30 john_voice_sample.wav
+-rw-r--r-- 1 user user 172K Feb 7 10:30 john_voice_sample.mp3
 ```
 
 ### 3. Restart AI Agent
@@ -519,8 +519,8 @@ python guided_record.py
 ```
 
 Files created:
-- `./personality/voice/john_voice_sample.wav`
-- `./personality/voice/jane_voice_sample.wav`
+- `./personality/voice/john_voice_sample.mp3`
+- `./personality/voice/jane_voice_sample.mp3`
 
 ### Re-recording After Voice Changes
 

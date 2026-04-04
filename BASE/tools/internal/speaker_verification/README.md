@@ -23,13 +23,13 @@ To enable speaker verification, you need to create a voice sample file for the u
 #### File Location
 
 ```
-./personality/voice/{username}_voice_sample.wav
+./personality/voice/{username}_voice_sample.mp3
 ```
 
 Replace `{username}` with the actual username configured in `personality/bot_info.py`.
 
 **Example:**
-- If `username = "john"` → file should be `./personality/voice/john_voice_sample.wav`
+- If `username = "john"` → file should be `./personality/voice/john_voice_sample.mp3`
 
 #### Recording Requirements
 
@@ -81,7 +81,7 @@ Replace `{username}` with the actual username configured in `personality/bot_inf
 5. **Export:**
    - `File` → `Export` → `Export as WAV`
    - Format: `WAV (Microsoft) signed 16-bit PCM`
-   - Save to `./personality/voice/{username}_voice_sample.wav`
+   - Save to `./personality/voice/{username}_voice_sample.mp3`
 
 ### Method 2: Using Python Script
 
@@ -116,7 +116,7 @@ sd.wait()
 print("Recording complete!")
 
 from personality.bot_info import username
-output_path = f"./personality/voice/{username}_voice_sample.wav"
+output_path = f"./personality/voice/{username}_voice_sample.mp3"
 
 sf.write(output_path, audio, SAMPLE_RATE)
 print(f"Voice sample saved to: {output_path}")
@@ -144,7 +144,7 @@ python record_voice_sample.py
    ffmpeg -i input.wav -ar 22050 -ac 1 -sample_fmt s16 output.wav
    ```
 
-6. **Move** to `./personality/voice/{username}_voice_sample.wav`
+6. **Move** to `./personality/voice/{username}_voice_sample.mp3`
 
 ---
 
@@ -219,7 +219,7 @@ SPEAKER_VERIFICATION_THRESHOLD = 0.75
 ```
 
 **Solution:**
-- Check file exists: `./personality/voice/{username}_voice_sample.wav`
+- Check file exists: `./personality/voice/{username}_voice_sample.mp3`
 - Verify filename matches `username` in `bot_info.py`
 - Ensure file extension is `.wav` (lowercase)
 
@@ -289,8 +289,8 @@ To support multiple authorized users:
 
 1. Create voice samples for each user:
    ```
-   ./personality/voice/john_voice_sample.wav
-   ./personality/voice/jane_voice_sample.wav
+   ./personality/voice/john_voice_sample.mp3
+   ./personality/voice/jane_voice_sample.mp3
    ```
 
 2. Modify verification engine to accept list of embeddings
@@ -334,7 +334,7 @@ from BASE.tools.internal.speaker_verification.speaker_verification_engine import
 )
 
 verifier = SpeakerVerificationEngine(
-    user_voice_sample="./personality/voice/user_voice_sample.wav",
+    user_voice_sample="./personality/voice/user_voice_sample.mp3",
     similarity_threshold=0.75,
     logger=logger
 )

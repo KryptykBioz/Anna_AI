@@ -97,7 +97,7 @@ class WhisperTool(InternalToolInterface):
             from pathlib import Path
             from personality.bot_info import username
             
-            user_voice_sample = Path(f"./personality/voice/{username}_voice_sample.wav")
+            user_voice_sample = Path(f"./personality/voice/{username}_voice_sample.mp3")
             
             if not user_voice_sample.exists():
                 if self._logger:

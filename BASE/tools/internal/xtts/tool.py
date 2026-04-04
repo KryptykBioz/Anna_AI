@@ -43,7 +43,7 @@ class XTTSTool(InternalToolInterface):
         self._logger = logger
         
         from personality.bot_info import agentname
-        self._voice_sample_path = Path(f"./personality/voice/{agentname}_voice_sample.wav")
+        self._voice_sample_path = Path(f"./personality/voice/{agentname}_voice_sample.mp3")
         self._language = 'en'
         self._speed = 1.0
         

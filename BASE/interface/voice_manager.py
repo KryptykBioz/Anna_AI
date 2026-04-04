@@ -532,7 +532,7 @@ class VoiceManager:
         
         if controls.USE_CUSTOM_VOICE:
             from personality.bot_info import agentname
-            voice_sample = f"./personality/voice/{agentname}_voice_sample.wav"
+            voice_sample = f"./personality/voice/{agentname}_voice_sample.mp3"
             
             return {
                 'type': 'xtts',

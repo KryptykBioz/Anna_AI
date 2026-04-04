@@ -34,7 +34,7 @@ Anna_AI/                                    # Your project root
 │   ├── bot_info.py                         # (existing)
 │   │
 │   └── voice/                              # [NEW DIRECTORY]
-│       └── {username}_voice_sample.wav     # [CREATED by recording scripts]
+│       └── {username}_voice_sample.mp3     # [CREATED by recording scripts]
 │
 └── tools/                                  # [NEW DIRECTORY at project root]
     └── voice_recording/                    # [NEW]
@@ -154,7 +154,7 @@ python tools/voice_recording/record_voice_sample.py
 python tools/voice_recording/quick_record.py
 ```
 
-This will create: `personality/voice/{username}_voice_sample.wav`
+This will create: `personality/voice/{username}_voice_sample.mp3`
 
 ---
 
@@ -182,7 +182,7 @@ This will create: `personality/voice/{username}_voice_sample.wav`
 
 ### Files Created by User
 
-- [ ] `personality/voice/{username}_voice_sample.wav` (created by recording script)
+- [ ] `personality/voice/{username}_voice_sample.mp3` (created by recording script)
 
 ---
 
@@ -196,7 +196,7 @@ ls -la BASE/tools/internal/speaker_verification/
 # Should show: speaker_verification_engine.py, information.json, README.md, xtts_config.json
 
 ls -la personality/voice/
-# Should show: {username}_voice_sample.wav (after recording)
+# Should show: {username}_voice_sample.mp3 (after recording)
 
 ls -la tools/voice_recording/
 # Should show: guided_record.py, record_voice_sample.py, quick_record.py, RECORDING_GUIDE.md
@@ -439,7 +439,7 @@ cp BASE/tools/internal/xtts/xtts_config.json BASE/tools/internal/speaker_verific
 **Solution:**
 ```bash
 # Check voice sample exists
-ls -la personality/voice/{username}_voice_sample.wav
+ls -la personality/voice/{username}_voice_sample.mp3
 
 # If missing, record it
 python tools/voice_recording/guided_record.py
@@ -485,7 +485,7 @@ print('[OK] SPEAKER_VERIFICATION_THRESHOLD:', controls.SPEAKER_VERIFICATION_THRE
 python -c "
 from personality.bot_info import username
 from pathlib import Path
-sample = Path(f'./personality/voice/{username}_voice_sample.wav')
+sample = Path(f'./personality/voice/{username}_voice_sample.mp3')
 print(f'[OK] Voice sample exists: {sample.exists()}')
 if sample.exists():
     print(f'[OK] File size: {sample.stat().st_size / 1024:.1f} KB')
@@ -502,7 +502,7 @@ All tests should output `[OK]` messages.
 1. Speaker verification engine → `BASE/tools/internal/speaker_verification/`
 2. Modified Whisper tool → `BASE/tools/internal/whisper/tool.py` (replace)
 3. Recording scripts → `tools/voice_recording/`
-4. Voice sample → `personality/voice/{username}_voice_sample.wav` (created by script)
+4. Voice sample → `personality/voice/{username}_voice_sample.mp3` (created by script)
 5. Controls update → `personality/controls.py` (add settings)
 
 **Run from project root:**

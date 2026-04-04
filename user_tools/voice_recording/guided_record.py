@@ -263,7 +263,7 @@ def save_sample(audio, sample_rate, username):
     output_dir = Path('./personality/voice')
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    output_path = output_dir / f"{username}_voice_sample.wav"
+    output_path = output_dir / f"{username}_voice_sample.mp3"
     
     if output_path.exists():
         response = input(f"\n[WARNING] {output_path} exists. Overwrite? (y/N): ").strip().lower()
