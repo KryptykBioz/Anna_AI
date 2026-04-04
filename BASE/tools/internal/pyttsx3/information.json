@@ -1,0 +1,25 @@
+{
+  "tool_name": "pyttsx3",
+  "tool_description": "Fast system voice synthesis using OS speech engine",
+  "category": "internal",
+  "service_type": "tts",
+  "control_variable_name": "USE_PYTTSX3",
+  "control_logic": "enabled_when_true",
+  "version": "1.0.0",
+  "priority": 5,
+  "requirements": {
+    "gpu_required": false,
+    "voice_sample_required": false
+  },
+  "features": {
+    "voice_cloning": false,
+    "streaming": false,
+    "voice_hub": true,
+    "caching": false,
+    "multi_language": true
+  },
+  "configuration": {
+    "voice_index": 0,
+    "rate": 200
+  }
+}

@@ -1,0 +1,224 @@
+# ============================================================================
+# REQUIREMENTS FOR VTUBER AI AGENTS (RTX 50-SERIES GPU SUPPORT)
+# ============================================================================
+#
+# For complete setup instructions including GPU package installation,
+# see SETUP.md in the project root directory.
+# GPU-specific setup instructions are for Nvidia 50-series GPU compatibility only
+# (Custom pytorch and pyaudio wheels were built for tool compatibility on 50-series
+# GPUs with CUDA 13+) 
+# Ignore the GPU-specific instructions for other GPUs
+# 
+# ============================================================================
+# PREREQUISITES:
+# ============================================================================
+# 1. Python 3.11.9
+# 2. RTX 50-series GPU (5060 Ti, 5070, 5080, 5090) with latest drivers for best
+# performance
+# 3. Anna_AI as base template with working GPU support
+# 4. Visual Studio Build Tools (if building PyAudio from source)
+#
+# ============================================================================
+# INSTALLATION ORDER FOR NEW AGENTS:
+# ============================================================================
+#
+# STEP 1: Create virtual environment
+# If Python 3.11 is installed and in PATH:
+# py -3.11 -m venv venv
+# or
+# python3.11 -m venv venv
+# If that doesn't work, use the full path:
+# C:\Python311\python.exe -m venv venv
+# To find your Python 3.11 installation path:
+# py -3.11 -c "import sys; print(sys.executable)"
+#
+# STEP 2: Activate the virtual environment (from project root)
+# .\venv\Scripts\activate
+#
+# STEP 2.5: Upgrade pip
+# python -m pip install --upgrade pip
+#
+# STEP 3: Install this requirements file
+# pip install -r requirements.txt
+#
+# STEP 4: CRITICAL - Install specific transformers version
+# pip install transformers==4.38.2
+# (Newer versions break XTTS - DO NOT upgrade beyond 4.38.2)
+#
+# STEP 5 (Only for 50-series GPU support): Copy GPU packages from Anna_AI (DO NOT use pip for these)
+# Use copy_gpu_packages.py script OR manual copy from SETUP.md
+# Required packages to copy:
+#   - torch/ and torch-*.dist-info/
+#   - torchaudio/ and torchaudio-*.dist-info/
+#   - torchvision/ and torchvision-*.dist-info/
+#   - nvidia*/ (ALL nvidia folders - contains CUDA libraries)
+#   - ctranslate2/ and ctranslate2-*.dist-info/ (CRITICAL for Whisper)
+#   - pyaudio/ and PyAudio-*.dist-info/ (if custom-built)
+#
+# STEP 6 (Only for 50-series GPU support): Verify GPU support
+# python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
+# python -c "from faster_whisper import WhisperModel; print('CTranslate2: OK')"
+#
+# STEP 7: Test with GUI
+# .\START.bat
+#
+# ============================================================================
+# WHY NOT USE PIP FOR GPU PACKAGES?
+# ============================================================================
+# RTX 50-series (Blackwell/sm_120) is NOT officially supported by PyPI.
+# Anna_AI has custom-built PyTorch with sm_120 support that MUST be copied
+# directly. Using pip install will give you CPU-only or incompatible builds.
+#
+# See SETUP.md for detailed explanation and troubleshooting.
+#
+# ============================================================================
+
+
+
+# # Core AI/ML packages
+# numpy==1.26.4
+# pillow==10.4.0
+
+# # Audio processing
+# sounddevice==0.5.2
+# soundfile==0.13.1
+# pyttsx3==2.99
+
+# # Speech recognition & TTS
+# faster-whisper==1.2.1
+# vosk==0.3.45
+# TTS==0.22.0
+
+# # Discord integration
+# discord.py==2.6.4
+
+# # Web utilities
+# requests==2.32.5
+# beautifulsoup4==4.14.2
+# websockets==15.0.1
+
+# # GUI & automation
+# pygame==2.6.1
+# PyAutoGUI==0.9.54
+# screeninfo==0.8.1
+
+# # Utilities
+# colorama==0.4.6
+# python-dotenv==1.1.1
+
+# # File updating
+# watchdog==6.0.0
+
+# Core AI/ML packages
+numpy==1.26.4
+pillow==10.4.0
+
+# Audio processing
+sounddevice==0.5.2
+soundfile==0.13.1
+pyttsx3==2.99
+
+# Speech recognition & TTS
+faster-whisper==1.2.1
+vosk==0.3.45
+TTS==0.22.0
+
+# Discord integration
+discord.py==2.6.4
+
+# Web utilities
+requests==2.32.5
+beautifulsoup4==4.14.2
+websockets==15.0.1
+
+# Web API and GUI (NEW)
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+streamlit==1.31.0
+python-multipart==0.0.6
+
+# GUI & automation (Legacy - kept for compatibility)
+pygame==2.6.1
+PyAutoGUI==0.9.54
+screeninfo==0.8.1
+
+# Utilities
+colorama==0.4.6
+python-dotenv==1.1.1
+
+# File updating
+watchdog==6.0.0
+
+# LOCKED VERSIONS
+transformers==4.38.2
+
+
+
+# ============================================================================
+# OPTIONAL INSTALLS FOR SOME TOOLS/FUNCTIONALITY
+# ============================================================================
+# pip install mss opencv-python numpy --break-system-packages
+# pip install websocket-client
+# pip install zmq
+# pip install youtube-transcript-api
+
+# ============================================================================
+# GPU PACKAGES (COPY FROM ANNA_AI - DO NOT INSTALL VIA PIP):
+# ============================================================================
+# The following packages MUST be copied from Anna_AI's working venv:
+#
+# torch==2.10.0a0+gitd4493c5          # Custom sm_120 build
+# torchaudio==2.9.1 or 2.10.0a0       # Matches torch version
+# torchvision==0.24.1 or compatible   # Matches torch version
+# ctranslate2==<version from Anna_AI> # CRITICAL - enables Whisper int8
+# pyaudio==0.2.14                     # Custom Windows build
+# nvidia-cublas-cu12==<version>       # CUDA runtime libraries
+# nvidia-cuda-runtime-cu12==<version> # (and all other nvidia-* packages)
+#
+# WHY COPY INSTEAD OF PIP INSTALL?
+# - PyTorch from PyPI doesn't support sm_120 (RTX 50-series)
+# - pip wheel rebuilds packages, losing GPU optimizations
+# - CTranslate2 from PyPI may lack int8 GPU compute support
+#
+# Use copy_gpu_packages.py script or see SETUP.md for manual instructions.
+#
+# ============================================================================
+# LOCKED VERSIONS (DO NOT UPDATE):
+# ============================================================================
+# transformers==4.38.2  # LOCKED - newer versions break XTTS (BeamSearchScorer)
+#
+# ============================================================================
+# NOTES ON STANDARD LIBRARY MODULES:
+# ============================================================================
+# These are built into Python (no installation needed):
+# - abc, argparse, ast, asyncio, atexit, base64, ctypes, dataclasses
+# - enum, hashlib, importlib, io, pickle, platform, queue, site
+# - socket, subprocess, tempfile, threading, tkinter, traceback, warnings
+#
+# ============================================================================
+# PROJECT-SPECIFIC MODULES:
+# ============================================================================
+# These are part of your agent codebase (not pip packages):
+# - BASE/ (shared framework code)
+# - personality/ (agent personality and controls)
+# - gui_themes/ (custom GUI styling)
+#
+# ============================================================================
+# TROUBLESHOOTING:
+# ============================================================================
+# If you get import errors or GPU not detected:
+# 1. Check transformers version: pip show transformers
+#    (Must be 4.38.2, not newer)
+# 2. Verify GPU packages copied: python -c "import torch; print(torch.cuda.is_available())"
+# 3. Check CTranslate2: python -c "from faster_whisper import WhisperModel; print('OK')"
+# 4. See SETUP.md troubleshooting section
+#
+# ============================================================================
+# SUPPORT:
+# ============================================================================
+# For detailed setup instructions, troubleshooting, and explanations:
+# - See SETUP.md in project root
+# - GPU: NVIDIA RTX 5060 Ti (sm_120 / Blackwell architecture)
+#
+# ============================================================================

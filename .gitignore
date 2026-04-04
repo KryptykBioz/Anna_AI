@@ -1,0 +1,96 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Backup Files
+*.bak
+
+# Models Directory
+models/
+
+# Additional Python ignores
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Agent memory directory
+memory/
+
+# Memory files
+.pkl
+personality/memory/long_memory.json
+personality/memory/medium_memory.json
+personality/memory/short_memory.json
+
+# Installed (optional) Tools
+installed/
+
+# NODE MODULES
+node_modules/
+
+# Test Files
+test.html
+output.md
+
+# embeddings
+*_embeddings.json
+personality/memory/voice_embeddings_cache.pkl
+embeddings/
+
+# staged for removal
+X_*
+
+# game guides and embeds
+personality/base_memory/base_files/mecha_break.md
+personality/base_memory/game_guides/mecha_break.md
+personality/base_memory/game_guides/minecraft_guide.md
+

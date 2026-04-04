@@ -1,0 +1,30 @@
+{
+  "tool_name": "speaker_verification",
+  "tool_description": "XTTS-based speaker verification to filter user voice from others",
+  "category": "internal",
+  "service_type": "audio_processing",
+  "control_variable_name": "USE_SPEAKER_VERIFICATION",
+  "control_logic": "enabled_when_true",
+  "version": "1.0.0",
+  "priority": 15,
+  "requirements": {
+    "gpu_recommended": true,
+    "min_vram_gb": 2,
+    "voice_sample_required": true,
+    "depends_on": ["xtts"]
+  },
+  "features": {
+    "speaker_identification": true,
+    "real_time": true,
+    "gpu_accelerated": true,
+    "zero_dependencies": true,
+    "configurable_threshold": true
+  },
+  "configuration": {
+    "user_voice_sample_path": "./personality/voice/{username}_voice_sample.wav",
+    "similarity_threshold": 0.75,
+    "threshold_strict": 0.85,
+    "threshold_moderate": 0.70,
+    "threshold_loose": 0.60
+  }
+}

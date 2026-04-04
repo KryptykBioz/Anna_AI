@@ -1,0 +1,28 @@
+{
+  "tool_name": "xtts",
+  "tool_description": "High-quality neural voice cloning using XTTS v2",
+  "category": "internal",
+  "service_type": "tts",
+  "control_variable_name": "USE_XTTS",
+  "control_logic": "enabled_when_true",
+  "version": "2.0.0",
+  "priority": 10,
+  "requirements": {
+    "gpu_recommended": true,
+    "voice_sample_required": true,
+    "min_vram_gb": 4
+  },
+  "features": {
+    "voice_cloning": true,
+    "streaming": true,
+    "voice_hub": true,
+    "caching": true,
+    "multi_language": true
+  },
+  "configuration": {
+    "voice_sample_path": "./personality/voice/{agentname}_voice_sample.wav",
+    "language": "en",
+    "speed": 1.0,
+    "device": "auto"
+  }
+}

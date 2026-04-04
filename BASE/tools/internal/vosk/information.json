@@ -1,0 +1,25 @@
+{
+  "tool_name": "vosk",
+  "tool_description": "CPU-based speech recognition using Vosk (fallback for non-CUDA systems)",
+  "category": "internal",
+  "service_type": "voice_input",
+  "control_variable_name": "USE_VOSK",
+  "control_logic": "enabled_when_true",
+  "version": "1.0.0",
+  "priority": 5,
+  "requirements": {
+    "gpu_required": false,
+    "model_required": true,
+    "model_path": "models/vosk-model-en-us-0.42-gigaspeech"
+  },
+  "features": {
+    "real_time": true,
+    "voice_hub": true,
+    "vad_filter": false,
+    "multi_language": false
+  },
+  "configuration": {
+    "language": "en-us",
+    "sample_rate": 16000
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "tool_name": "whisper",
+  "tool_description": "GPU-accelerated speech recognition using Faster-Whisper",
+  "category": "internal",
+  "service_type": "voice_input",
+  "control_variable_name": "USE_WHISPER",
+  "control_logic": "enabled_when_true",
+  "version": "1.0.0",
+  "priority": 10,
+  "requirements": {
+    "gpu_required": true,
+    "min_vram_gb": 2,
+    "cuda_required": true
+  },
+  "features": {
+    "real_time": true,
+    "voice_hub": true,
+    "vad_filter": true,
+    "multi_language": false
+  },
+  "configuration": {
+    "model_size": "small",
+    "compute_type": "int8",
+    "language": "en"
+  }
+}
