@@ -22,7 +22,7 @@
   },
   "configuration": {
     "user_voice_sample_path": "./personality/voice/{username}_voice_sample.mp3",
-    "similarity_threshold": 0.75,
+    "similarity_threshold": 0.70,
     "threshold_strict": 0.85,
     "threshold_moderate": 0.70,
     "threshold_loose": 0.60

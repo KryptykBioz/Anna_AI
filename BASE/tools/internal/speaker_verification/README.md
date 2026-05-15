@@ -115,7 +115,7 @@ sd.wait()
 
 print("Recording complete!")
 
-from personality.bot_info import username
+from BASE.config.bot_info import username
 output_path = f"./personality/voice/{username}_voice_sample.mp3"
 
 sf.write(output_path, audio, SAMPLE_RATE)
@@ -335,7 +335,7 @@ from BASE.tools.internal.speaker_verification.speaker_verification_engine import
 
 verifier = SpeakerVerificationEngine(
     user_voice_sample="./personality/voice/user_voice_sample.mp3",
-    similarity_threshold=0.75,
+    similarity_threshold=0.70,
     logger=logger
 )
 

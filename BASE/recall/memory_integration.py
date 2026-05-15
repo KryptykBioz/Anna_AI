@@ -1,4 +1,4 @@
-# Filename: BASE/memory/memory_integration.py
+# Filename: BASE/recall/memory_integration.py
 """
 Memory Integration for AI Core
 Efficiently incorporates 4-tier memory system into the flow
@@ -45,15 +45,15 @@ class MemoryAwarePromptBuilder:
     """Extended prompt builder with memory awareness"""
     
     __slots__ = (
-        'controls', 'memory_search', '_token_budget', '_memory_triggers'
+        'controls', 'memory_search', '_token_budget', '_memory_triggers', 'config'
     )
-    
-    def __init__(self, controls_module, memory_search):
+
+    def __init__(self, controls_module, memory_search, config=None):
         self.controls = controls_module
         self.memory_search = memory_search
+        self.config = config
         self._token_budget = 1500
-        
-        # Memory relevance patterns
+
         self._memory_triggers = {
             'recall': ['remember', 'recall', 'before', 'earlier', 'last time', 'you said', 'we talked'],
             'reference': ['guide', 'how to', 'explain', 'what is', 'tell me about'],
@@ -135,79 +135,65 @@ class MemoryAwarePromptBuilder:
     # MEMORY CONTEXT BUILDING
     # ============================================================================
     
-    def build_memory_context(
-        self,
-        relevance: MemoryRelevanceScore
-    ) -> str:
-        """
-        Build memory context based on relevance score
-        Returns formatted context string with appropriate memory tiers
-        """
+    def build_memory_context(self, relevance: MemoryRelevanceScore) -> str:
         if not self.memory_search:
             return ""
-        
+
+        # Pull limit from config, falling back to 1 (conservative)
+        k = (
+            getattr(self.config, 'max_context_entries', None)
+            or getattr(self.config, 'embedding_search_results', None)
+            or 1
+        )
+
         context_parts = []
-        
-        # TIER 1: Short Memory (Recent conversation - always included)
+
         if relevance.needs_short_memory:
             short_mem = self.memory_search.get_short_memory()
             if short_mem:
                 context_parts.append("## RECENT CONVERSATION")
                 context_parts.append(short_mem)
-        
-        # TIER 1.5: Yesterday's Conversation (if relevant)
+
         if relevance.needs_yesterday:
-            yesterday_ctx = self.memory_search.get_yesterday_context(max_entries=10)
+            yesterday_ctx = self.memory_search.get_yesterday_context()
             if yesterday_ctx:
                 yesterday_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
                 context_parts.append(f"\n## YESTERDAY ({yesterday_date})")
                 context_parts.append(yesterday_ctx)
-        
-        # TIER 2: Medium Memory (Earlier today - if relevant)
+
         if relevance.needs_medium_memory and relevance.query_hint:
-            medium_results = self.memory_search.search_medium_memory(
-                relevance.query_hint, 
-                k=1
-            )
+            medium_results = self.memory_search.search_medium_memory(relevance.query_hint, k=k)
             if medium_results:
                 context_parts.append("\n## EARLIER TODAY")
                 for r in medium_results:
                     role = self.memory_search.memory_manager.username if r['role'] == 'user' else self.memory_search.memory_manager.agentname
                     context_parts.append(f"[{r['timestamp']}] {role}: {r['content']}")
                     context_parts.append(f"(relevance: {r['similarity']:.2f})")
-        
-        # TIER 3: Long Memory (Past days - if relevant)
+
         if relevance.needs_long_memory and relevance.query_hint:
-            long_results = self.memory_search.search_long_memory(
-                relevance.query_hint,
-                k=1
-            )
+            long_results = self.memory_search.search_long_memory(relevance.query_hint, k=k)
             if long_results:
                 context_parts.append("\n## PAST DAYS")
                 for r in long_results:
                     context_parts.append(f"[{r['date']}] {r['summary']}")
                     context_parts.append(f"(relevance: {r['similarity']:.2f})")
-        
-        # TIER 4: Base Knowledge (Reference material - if relevant)
+
         if relevance.needs_base_knowledge and relevance.query_hint:
             base_results = self.memory_search.search_base_knowledge(
-                relevance.query_hint,
-                k=1,
-                min_similarity=0.4  # Higher threshold for base knowledge
+                relevance.query_hint, k=k, min_similarity=0.4
             )
             if base_results:
-                # Separate personality from documents
-                personality = [r for r in base_results 
-                              if r.get('metadata', {}).get('type') in 
-                              ['conversation_example', 'category_summary', 'system_prompt']]
+                personality = [r for r in base_results
+                            if r.get('metadata', {}).get('type') in
+                            ['conversation_example', 'category_summary', 'system_prompt']]
                 documents = [r for r in base_results if r not in personality]
-                
+
                 if personality:
                     context_parts.append("\n## PERSONALITY KNOWLEDGE")
                     for r in personality:
                         context_parts.append(r['text'])
                         context_parts.append(f"(relevance: {r['similarity']:.2f})")
-                
+
                 if documents:
                     context_parts.append("\n## REFERENCE GUIDES")
                     for r in documents:
@@ -215,7 +201,7 @@ class MemoryAwarePromptBuilder:
                         context_parts.append(f"From {source}:")
                         context_parts.append(r['text'])
                         context_parts.append(f"(relevance: {r['similarity']:.2f})")
-        
+
         return "\n".join(context_parts) if context_parts else ""
     
     # ============================================================================
@@ -281,23 +267,21 @@ class MemoryAwareThinkingProcessor:
     )
     
     def __init__(self, config, ollama_caller, logger, controls, memory_search):
-        # Initialize base processor
-        from BASE.core.generators.thought_generator import ThoughtGenerator
-        self.base_processor = ThoughtGenerator(
-            config, ollama_caller, logger, controls
+        from BASE.core.thought_processor import ThoughtProcessor
+        self.base_processor = ThoughtProcessor(
+            config=config,
+            controls_module=controls,
+            project_root=config.project_root if hasattr(config, 'project_root') else None,
+            memory_search=memory_search
         )
-        
+
         self.config = config
         self._call_ollama = ollama_caller
         self._log = logger
         self.controls = controls
-        
-        # Initialize memory-aware prompt builder
-        self.memory_prompt_builder = MemoryAwarePromptBuilder(
-            controls, memory_search
-        )
-        
-        # Delegate to base processor
+
+        self.memory_prompt_builder = MemoryAwarePromptBuilder(controls, memory_search, config=config)
+
         self._event_batch_size = 3
     
     # Delegate batch interpretation (no memory needed)

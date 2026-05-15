@@ -99,10 +99,10 @@ class DynamicToolPanelLoader:
             
             panels.append(panel_info)
             
-            if self.logger and has_component:
-                self.logger.system(
-                    f"[Panel Loader] Found component for {panel_info['tool_name']}"
-                )
+            # if self.logger and has_component:
+            #     self.logger.system(
+            #         f"[Panel Loader] Found component for {panel_info['tool_name']}"
+            #     )
         
         # Sort by category and name
         panels.sort(key=lambda x: (x['category'], x['display_name']))
@@ -155,61 +155,48 @@ class DynamicToolPanelLoader:
             }
         
         except Exception as e:
-            if self.logger:
-                self.logger.warning(f"[Panel Loader] Failed to load metadata from {tool_dir.name}: {e}")
+            # if self.logger:
+            #     self.logger.warning(f"[Panel Loader] Failed to load metadata from {tool_dir.name}: {e}")
             return None
     
     def load_component(self, tool_name: str, component_path: Path, parent_gui, ai_core) -> Optional[Any]:
-        """
-        Dynamically load a tool's GUI component
-        
-        Args:
-            tool_name: Name of tool
-            component_path: Path to component.py file
-            parent_gui: Parent GUI instance
-            ai_core: AI Core instance
-            
-        Returns:
-            Component instance or None
-        """
-        # Check if already loaded
         if tool_name in self._components:
-            if self.logger:
-                self.logger.system(f"[Panel Loader] Component already loaded: {tool_name}")
+            # if self.logger:
+            #     self.logger.system(f"[Panel Loader] Component already loaded: {tool_name}")
             return self._components[tool_name]
-        
+
         try:
-            # Load module
             module_name = f"tool_component_{tool_name}"
+
+            # Evict stale cached module so file changes are picked up on reload
+            sys.modules.pop(module_name, None)
+
             spec = importlib.util.spec_from_file_location(module_name, str(component_path))
-            
+
             if spec is None or spec.loader is None:
                 raise ImportError(f"Cannot load module from {component_path}")
-            
+
             module = importlib.util.module_from_spec(spec)
             sys.modules[module_name] = module
             spec.loader.exec_module(module)
-            
-            # Look for create_component factory function
+
             if not hasattr(module, 'create_component'):
                 if self.logger:
                     self.logger.error(
                         f"[Panel Loader] {tool_name} component missing create_component() function"
                     )
                 return None
-            
-            # Create component instance
+
             create_func = getattr(module, 'create_component')
             component = create_func(parent_gui, ai_core, self.logger)
-            
-            # Store component
+
             self._components[tool_name] = component
-            
-            if self.logger:
-                self.logger.success(f"[Panel Loader] Loaded component: {tool_name}")
-            
+
+            # if self.logger:
+            #     self.logger.success(f"[Panel Loader] Loaded component: {tool_name}")
+
             return component
-        
+
         except Exception as e:
             if self.logger:
                 self.logger.error(f"[Panel Loader] Failed to load {tool_name} component: {e}")

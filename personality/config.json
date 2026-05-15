@@ -1,132 +1,215 @@
 {
-  "_comment_architecture": "Configuration file for Anna AI Agent - Dynamic tool system",
-  "ollama": {
-    "_comment": "Ollama LLM API configuration",
-    "endpoint": "http://localhost:11434",
-    "temperature": 0.85,
-    "temperature_action": 0.2,
-    "temperature_cognitive": 0.7,
-    "temperature_response": 0.9,
-    "max_tokens": 1000,
-    "num_predict": 1000,
-    "num_ctx": 3000,
-    "top_p": 0.92,
-    "top_k": 60,
-    "repeat_penalty": 1.4,
-    "timeout": 600,
-    "seed": null
-  },
-  "models": {
-    "_comment": "Model assignments - should match bot_info.py",
-    "thought_model": "gemma3:12b-it-q4_K_M",
-    "response_model": "gemma3:12b-it-q4_K_M",
-    "vision_model": "gemma3:12b-it-q4_K_M",
-    "embed_model": "nomic-embed-text",
-    "tool_model": "gemma3:12b-it-q4_K_M"
-  },
+  "_comment_architecture": "Single source of truth for Anna AI configuration. Override any value via .env at project root.",
+
   "bot": {
-    "_comment": "Bot identity - should match bot_info.py",
     "name": "Anna",
     "username": "User",
-    "max_context_entries": 25,
-    "recent_convo_limit": 25
+    "game_username": "Player",
+    "group_chat_port": 54321,
+    "max_context_entries": 50,
+    "recent_convo_limit": 50
   },
+
+  "models": {
+    "thought_model":    "gemma3:12b-it-q4_K_M",
+    "response_model":   "gemma3:12b-it-q4_K_M",
+    "vision_model":     "gemma3:12b-it-q4_K_M",
+    "embed_model":      "nomic-embed-text:latest",
+    "tool_model":       "gemma3:12b-it-q4_K_M",
+    "action_model":     "gemma3:12b-it-q4_K_M"
+  },
+
+  "voice": {
+    "voice_index": 1,
+    "vb_cable_name": "CABLE Input"
+  },
+
+  "ollama": {
+    "endpoint":             "http://localhost:11434",
+    "temperature":          0.85,
+    "temperature_action":   0.2,
+    "temperature_cognitive": 0.7,
+    "temperature_response": 0.9,
+    "max_tokens":           1000,
+    "num_predict":          1000,
+    "num_ctx":              3000,
+    "top_p":                0.92,
+    "top_k":                60,
+    "repeat_penalty":       1.4,
+    "timeout":              600,
+    "seed":                 null,
+    "keep_alive":           "24h",
+    "num_parallel":         1,
+    "max_loaded_models":    2,
+    "concurrent_requests":  1
+  },
+
   "memory": {
-    "_comment": "Memory system configuration",
-    "max_context_entries": 25,
-    "embedding_search_results": 1,
+    "max_context_entries": 50,
+    "embedding_search_results":   1,
     "base_memory_search_results": 1,
-    "auto_summarize_threshold": 50,
-    "include_base_memory": false
+    "auto_summarize_threshold":   50,
+    "include_base_memory":        false,
+    "memory_length": 50,
+    "max_long_term_memories":     1,
+    "max_base_memories":          1
   },
+
   "logging": {
-    "_comment": "Default logging settings - can be overridden in controls.py",
-    "log_tool_execution": true,
-    "log_prompt_construction": true,
-    "log_response_processing": true,
-    "log_system_information": true,
-    "show_chat": true
+    "log_tool_execution":       true,
+    "log_prompt_construction":  false,
+    "log_reactive_prompt":      true,
+    "log_reflective_prompt":    true,
+    "log_proactive_prompt":     true,
+    "log_responsive_prompt":    true,
+    "log_action_prompt":        true,
+    "log_response_processing":  true,
+    "log_system_information":   true,
+    "show_chat":                false,
+    "log_coding_execution":     false,
+    "log_discord_execution":    false,
+    "log_minecraft_execution":  false
   },
+
+  "controls": {
+    "kill_command":                 "shut down sleep now",
+    "enable_continuous_thinking":   false,
+    "min_proactive_interval":       5.0,
+    "max_proactive_interval":       15.0,
+    "max_consecutive_proactive":    200,
+    "chat_engagement":              false,
+    "auto_restart":                 false,
+    "limit_processing":             false,
+    "processing_delay":             10,
+    "limit_speaking":               false,
+    "speaking_delay":               30,
+    "auto_respond":                 false,
+    "auto_respond_interval":        60,
+    "auto_prompt":                  false,
+    "auto_prompt_interval":         300,
+    "use_streaming":                false,
+    "stream_responses":             false,
+    "use_base_memory":              true,
+    "use_long_memory":              true,
+    "use_short_memory":             true,
+    "save_memory":                  true,
+    "use_memory":                   true,
+    "use_memory_encryption":        false,
+    "intelligent_tool_selection":   false,
+    "use_ai_tool_verification":     false,
+    "tool_selection_threshold":     0.3,
+    "enable_content_filter":        false,
+    "use_ai_content_filter":        false,
+    "content_filter_incoming":      false,
+    "content_filter_outgoing":      false,
+    "content_filter_context":       false,
+    "voice_volume":                 1.0,
+    "sound_effect_volume":          1.0,
+    "avatar_speech":                true,
+    "use_opencv_vision":            false,
+    "opencv_vision_fps":            15,
+    "opencv_vision_interval":       5.0,
+    "opencv_vision_width":          1024,
+    "opencv_vision_height":         768,
+    "opencv_vision_change_threshold": 50000,
+    "group_chat":                   false,
+    "playing_game":                 false,
+    "enable_tool_hot_reload":       false,
+    "enable_core_hot_reload":       false,
+    "enable_hot_reload":            false,
+    "enable_file_watching":         false,
+    "hot_reload_debounce":          2.0,
+    "use_thought_buffer":           true,
+    "max_tokens":                   2000,
+    "max_tool_result_chars":        1000,
+    "max_tool_results":             3,
+    "temperature":                  0.7,
+    "memory_length": 50
+  },
+
   "warudo": {
-    "_comment": "Warudo VTuber integration - external tool",
-    "websocket_url": "ws://127.0.0.1:19190",
-    "enabled": true,
-    "auto_connect": true,
+    "websocket_url":      "ws://127.0.0.1:19190",
+    "enabled":            true,
+    "auto_connect":       true,
     "connection_timeout": 2.0
   },
+
+  "unity": {
+  "websocket_url":      "ws://127.0.0.1:19192",
+  "connection_timeout": 5.0
+},
+
   "chat_engagement": {
-    "_comment": "Autonomous chat engagement system",
-    "enabled": false,
-    "autonomous": true,
-    "check_interval": 30,
+    "enabled":               false,
+    "autonomous":            true,
+    "check_interval":        30,
     "max_unengaged_messages": 5,
-    "engagement_cooldown": 60
+    "engagement_cooldown":   60
   },
+
   "youtube": {
-    "_comment": "YouTube live chat integration - external tool",
-    "_note": "Control via USE_YOUTUBE in controls.py (dynamically created)",
-    "enabled": true,
-    "video_id": "",
-    "auto_start": false,
+    "enabled":      true,
+    "video_id":     "",
+    "auto_start":   false,
     "max_messages": 10
   },
+
   "twitch": {
-    "_comment": "Twitch chat integration - external tool",
-    "_note": "Control via USE_TWITCH in controls.py (dynamically created)",
-    "enabled": true,
-    "channel": "",
-    "auto_start": false,
+    "enabled":      true,
+    "channel":      "",
+    "auto_start":   false,
     "max_messages": 10,
-    "oauth_token": "",
-    "nickname": ""
+    "oauth_token":  "",
+    "nickname":     ""
   },
+
   "discord": {
-    "_comment": "Discord bot integration - external tool",
-    "_note": "Control via USE_DISCORD in controls.py (dynamically created)",
-    "enabled": true,
-    "bot_token": "",
-    "command_prefix": "!",
-    "auto_start": false,
-    "allowed_channels": [],
-    "allowed_guilds": [],
-    "respond_to_mentions": true,
-    "respond_to_replies": true,
-    "respond_to_dms": true,
-    "respond_in_threads": true,
-    "typing_indicator": true,
+    "enabled":               true,
+    "bot_token":             "",
+    "command_prefix":        "!",
+    "auto_start":            false,
+    "allowed_channels":      [],
+    "allowed_guilds":        [],
+    "respond_to_mentions":   true,
+    "respond_to_replies":    true,
+    "respond_to_dms":        true,
+    "respond_in_threads":    true,
+    "typing_indicator":      true,
     "message_history_limit": 10,
-    "max_message_length": 2000,
-    "split_long_messages": true,
-    "command_cooldown": 3
+    "max_message_length":    2000,
+    "split_long_messages":   true,
+    "command_cooldown":      3
   },
+
   "features": {
-    "_comment": "Feature toggles - some controlled via dynamic tool system",
-    "_note_tts": "TTS selection via USE_GPT_SOVITS, USE_XTTS, USE_PYTTSX3 (dynamic)",
-    "_note_voice": "Voice input via USE_SILERO_VAD, USE_WHISPER, USE_VOSK (dynamic)",
-    "_note_search": "Search via USE_WEB_SEARCH (dynamically created from tool)",
-    "use_search": false,
-    "use_vision": false,
-    "use_warudo": true,
-    "use_sound_effects": true,
+    "use_search":             false,
+    "use_vision":             false,
+    "use_warudo":             true,
+    "use_sound_effects":      true,
     "sound_effects_directory": "./BASE/tools/installed/sound_effects/effects"
   },
+
   "hot_reload": {
-    "_comment": "Hot reload system for development",
-    "enabled": true,
-    "file_watching": false,
+    "enabled":          true,
+    "file_watching":    false,
     "debounce_seconds": 2.0,
-    "watch_directories": [
-      "tools/",
-      "BASE/core/"
-    ]
+    "watch_directories": ["tools/", "BASE/core/"]
   },
-  "_architecture_notes": {
-    "dynamic_tools": "Tool controls (USE_*) created from information.json files",
-    "internal_tools": "BASE/tools/internal/ - TTS, voice input (mutual exclusivity)",
-    "external_tools": "BASE/tools/installed/ - Integrations, search, etc.",
-    "initialization": "Run dynamic_control_initializer BEFORE GUI startup",
-    "priority_system": "Highest priority tool in each service_type enabled by default",
-    "mutual_exclusivity": "Only one TTS, one voice_input active at a time",
-    "gui_discovery": "GUI automatically discovers and displays all tools"
+
+  "_env_overrides": {
+    "_comment": "Any key in this file can be overridden via .env using AGENT_ prefix + section + key in UPPER_SNAKE_CASE.",
+    "_examples": [
+      "AGENT_BOT_NAME=Anna",
+      "AGENT_MODELS_THOUGHT_MODEL=llama3:8b",
+      "AGENT_OLLAMA_ENDPOINT=http://192.168.1.10:11434",
+      "AGENT_OLLAMA_TEMPERATURE=0.7",
+      "AGENT_CONTROLS_ENABLE_CONTINUOUS_THINKING=true",
+      "AGENT_DISCORD_BOT_TOKEN=your_token_here",
+      "AGENT_TWITCH_OAUTH_TOKEN=oauth:your_token",
+      "OLLAMA_ENDPOINT=http://localhost:11434",
+      "OLLAMA_TEMPERATURE=0.85",
+      "OLLAMA_MAX_TOKENS=1000",
+      "OLLAMA_SEED=-1"
+    ]
   }
 }

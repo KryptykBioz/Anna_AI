@@ -24,11 +24,14 @@ class XTTSTool(InternalToolInterface):
     
     __slots__ = (
         '_config', '_controls', '_logger', '_voice_sample_path',
-        '_language', '_speed', '_is_available', '_init_error',
+        '_language', '_speed', '_temperature', '_length_penalty',
+        '_repetition_penalty', '_top_k', '_top_p',
+        '_gpt_cond_len', '_gpt_cond_chunk_len', '_max_ref_length',
+        '_is_available', '_init_error',
         '_xtts_engine', '_is_speaking', '_speech_lock', '_stop_event',
         'hub_client', 'streaming_handler'
     )
-    
+
     @property
     def tool_name(self) -> str:
         return "xtts"
@@ -42,10 +45,29 @@ class XTTSTool(InternalToolInterface):
         self._controls = controls
         self._logger = logger
         
-        from personality.bot_info import agentname
-        self._voice_sample_path = Path(f"./personality/voice/{agentname}_voice_sample.mp3")
-        self._language = 'en'
-        self._speed = 1.0
+        from BASE.config.bot_info import (
+            agentname, voice_sample_filename,
+            xtts_language, xtts_speed, xtts_temperature,
+            xtts_length_penalty, xtts_repetition_penalty,
+            xtts_top_k, xtts_top_p,
+            xtts_gpt_cond_len, xtts_gpt_cond_chunk_len, xtts_max_ref_length
+        )
+
+        if voice_sample_filename:
+            self._voice_sample_path = Path(f"./personality/voice/{voice_sample_filename}")
+        else:
+            self._voice_sample_path = Path(f"./personality/voice/{agentname}_voice_sample.mp3")
+
+        self._language             = xtts_language
+        self._speed                = xtts_speed
+        self._temperature          = xtts_temperature
+        self._length_penalty       = xtts_length_penalty
+        self._repetition_penalty   = xtts_repetition_penalty
+        self._top_k                = xtts_top_k
+        self._top_p                = xtts_top_p
+        self._gpt_cond_len         = xtts_gpt_cond_len
+        self._gpt_cond_chunk_len   = xtts_gpt_cond_chunk_len
+        self._max_ref_length       = xtts_max_ref_length
         
         self._is_available = False
         self._init_error = None
@@ -90,6 +112,14 @@ class XTTSTool(InternalToolInterface):
                 voice_sample_path=str(self._voice_sample_path),
                 language=self._language,
                 speed=self._speed,
+                temperature=self._temperature,
+                length_penalty=self._length_penalty,
+                repetition_penalty=self._repetition_penalty,
+                top_k=self._top_k,
+                top_p=self._top_p,
+                gpt_cond_len=self._gpt_cond_len,
+                gpt_cond_chunk_len=self._gpt_cond_chunk_len,
+                max_ref_length=self._max_ref_length,
                 logger=self._logger,
                 hub_client=self.hub_client
             )
@@ -151,7 +181,7 @@ class XTTSTool(InternalToolInterface):
             self._stop_event.clear()
         
         try:
-            import personality.controls as controls
+            import BASE.config.controls as controls
             volume = controls.VOICE_VOLUME
             
             if self.hub_client and self.hub_client.is_connected():
@@ -179,7 +209,7 @@ class XTTSTool(InternalToolInterface):
             self._stop_event.clear()
         
         try:
-            import personality.controls as controls
+            import BASE.config.controls as controls
             volume = controls.VOICE_VOLUME
             
             return self._xtts_engine.speak_streaming_chunks(
@@ -226,7 +256,7 @@ class XTTSTool(InternalToolInterface):
                 cache_stats = self._xtts_engine.get_cache_stats()
                 info.update(cache_stats)
             
-            import personality.controls as controls
+            import BASE.config.controls as controls
             info['volume'] = controls.VOICE_VOLUME
             info['volume_percent'] = f"{int(controls.VOICE_VOLUME * 100)}%"
         else:

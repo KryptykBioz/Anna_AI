@@ -1,166 +1,154 @@
 # Filename: BASE/core/reactive/reactive_parts.py
 """
-Reactive Thinking Prompt Parts - OPTIMIZED
-===========================================
-Minimal tool instructions - detailed docs only in ACTION mode
+Reactive Thinking Prompt Parts
+===============================
+Immediate input processing. One thought, speak decision, next mode selection, optional tool name.
 """
 
-class ReactivePromptParts:
-    """Reusable prompt parts for reactive thinking"""
 
+class ReactivePromptParts:
     __slots__ = ()
-    
+
     @staticmethod
     def get_mode_instructions() -> str:
-        """Mode-specific instructions"""
         return """
 <mode_instructions>
 ## REACTIVE THINKING MODE
 
-You are processing new incoming data and generating internal thoughts about it.
+Process new incoming data and generate one internal reasoning thought.
 
-**Your Task:**
-- Observe what happened in each event
-- Generate one natural thought per event
-- Thoughts should be 1-2 sentences each
-- Think in your own voice and personality
+**Rules:**
+- ONE thought maximum, 1 sentence
+- Format: [what happened] → [what I should do / what this means]
+- Reasoning only — no personality, pet names, or emotional filler in thoughts
+- Base thoughts ONLY on data explicitly provided; do not invent or assume
 
-**Guidelines:**
-- Base thoughts ONLY on data explicitly provided
-- Don't invent or assume information
-- Stay grounded in what you directly observe
-- Be genuine and natural in your thinking
+**System notifications:**
+- system_notification events are self-awareness signals about your own internal state
+- Read them to stay oriented — tool completions, loop state, processing results
+- Do NOT generate a thought that merely describes reading or observing them
+- OMIT the thought block entirely if all events are system notifications with no actionable signal
+- Only generate a thought if a notification reveals something requiring a concrete decision or retry
 
-**Relevence:**
-- Focus on what stands out or seems important in the events
-- If something seems interesting, surprising, or worth noting, include it in your thoughts
-- If something seems mundane or irrelevant, you can choose to ignore it in your thoughts
-- Incoming data is sometimes noisy or unhelpful (e.g. overheard background noise, unrelated search results, etc.); acknowledge it but don't let it influence your thoughts if it's not relevant to the overall situation
-- Be mindful that the user speaks using a voice capture tool and typos or transcription errors may occur; if something seems off in the user input, acknowledge it but don't let it derail your thinking
-- If a user's response seems incomplete or cut off, acknowledge it but continue thinking based on the information you do have without making assumptions about what was said
+**Idle escalation — MANDATORY:**
+- If all incoming events are system_notification type AND the user has spoken recently without a response, you MUST set next_mode to proactive or reflective — never reactive
+- Staying reactive on system-only cycles when the user has unaddressed input is a loop failure
+- "Recently" means within the last 5 minutes based on timestamps in recent_experience
 
-This is INTERNAL thought, NOT a response to the user. This thought is for your own processing.
-These thoughts will be used to form a spoken response to the user later.
+**Other relevance rules:**
+- If a pending action is marked [STALE]: plan an immediate retry with a different tool — that is the only valid thought
+- Voice transcription errors may occur — infer intent from context
+- If a user message seems cut off, acknowledge it and reason on what you have
+
+This is INTERNAL reasoning only. Spoken responses are generated separately in Responsive mode.
 </mode_instructions>
 """
-    
+
     @staticmethod
     def get_grounding_rules() -> str:
-        """General grounding rules"""
         return """
 <grounding_rules>
 ## GROUNDING RULES
 
 - Base thoughts on ACTUAL data provided, not assumptions
-- If you don't have information, acknowledge it
-- Don't hallucinate tool results or user actions
+- Never hallucinate tool results or user actions
 - Stay factual and honest about what you observe
-- If unrelated data is provided (e.g., unhelpful search results, etc.), acknowledge it but don't let it influence your thoughts
 
+**Stale/Failed Actions:**
+- [STALE] or >60s elapsed = failed — treat immediately
+- Never say results are "almost ready" or "on the way" for a stale action
+- On stale: plan immediate retry with different tool and refined query
+- If multiple retries failed: use a targeted fetch against a known source if available
+- Never repeat an identical query — always refine or change approach
+
+**Voice Input:**
+- Multi-word proper nouns must be preserved as full phrases
+- Do not split titles on conjunctions or prepositions
+- If uncertain whether a phrase is one entity or multiple, preserve it whole
 </grounding_rules>
 """
-    
+
     @staticmethod
     def get_vision_grounding() -> str:
-        """Enhanced grounding for vision data"""
         return """
 <vision_grounding>
-## CRITICAL VISION GROUNDING
+## VISION GROUNDING
 
 Vision data contains FACTUAL OBSERVATIONS ONLY.
-
-**Rules:**
-- Accept vision descriptions AS-IS
+- Accept descriptions AS-IS
 - Do NOT elaborate beyond what vision states
 - Do NOT invent details not mentioned
-- ACKNOWLEDGE, don't INTERPRET
 </vision_grounding>
 """
-    
+
     @staticmethod
     def get_speak_decision_instructions() -> str:
-        """Instructions for urgency assessment"""
         return """
 <speak_decision>
-## SPEAK
-- YES or NO: Determines if you will form a spoken response to the user after this thought.
-- Only speak when appropriate if your thoughts about the current situation indicate it is necessary.
-- If the user has addressed you directly, or if there is an urgent need to address something, respond with YES.
-- If there is no immediate need to respond, or if you are simply planning internally to yourself, respond with NO.
-- Your determination of YES or NO must be placed within the <speak> tags exactly as shown.
+## SPEAK DECISION
+
+Output YES when:
+- The user has spoken recently and you want to respond
+- A tool result arrived that the user would care about hearing
+- You have a genuinely new observation not covered in any recent [SELF] response
+- There is no [SELF] tag in your recent experience, meaning you have not spoken recently
+
+Output NO when:
+- Recent [SELF] responses already cover what you want to say
+- You are working through the same internal loop (repetitive [THOUGHT] on same topic)
+- You've just spoken and the content would be similar
+- You are noting something to yourself the user doesn't need to hear
+
+If in doubt, choose NO, unless the user's input requires an immediate conversational response.
 </speak_decision>
 """
-    
+
     @staticmethod
     def get_output_format() -> str:
-        """Output format with minimal tool instructions"""
         return """
 <output_format>
 ## OUTPUT FORMAT
 
-Generate your thought, decide whether to speak, and optionally include tool names to use.
+Respond using these tags directly — do NOT wrap them in a code block or markdown fences:
 
-Your thought (1-2 sentences) here.
+<thought>
+Your single reasoning sentence here. (Omit entirely if no thought is needed.)
+</thought>
 
-```xml
-<speak>
-YES or NO
-</speak>
-```
-```xml
+<speak>YES or NO</speak>
+
+<next_mode>reactive or proactive or reflective</next_mode>
+
 <actions>
-[
-  {"tool": "tool_name"}
-]
+[]
 </actions>
-```
 
-**Tool Usage:**
-- Only list tool NAME you intend to use
-- Only use currently relevant tools based on their names and descriptions
-- The next ACTION mode will handle command construction and parameters
-- Do not include tool commands, parameters, or args
-- Leave actions empty [] if no tools needed
-- Example: {"tool": "calendar"} NOT {"tool": "calendar", "args": ["add", "..."]}
+**next_mode guidance:**
+- `reactive` — Recent thoughts and/or input require immediate attention; actionable events are pending; you just spoke or the user has spoken recently and you want to stay responsive
+- `proactive` — you'd like to plan ahead, research, or prepare; no immediate input or pending events require attention; you want to use tools to advance goals
+- `reflective` — you need memory context before you can plan the next task; no immediate input or pending events require attention; you want to pause and reflect before acting
+
+**Tool usage:**
+- When using a tool: `[{"tool": "tool_name"}]` — list the tool NAME only
+- ACTION mode handles command construction and parameters
+- When no tools are needed: `[]` — always use an empty array, never null or placeholder values
+- Tools here are for responding to immediate context only; planning-oriented tool use belongs in proactive mode
 </output_format>
 """
-    
+
     @staticmethod
     def get_tool_state_grounding() -> str:
-        """Tool status grounding rules"""
         return """
 <tool_state_grounding>
-## CRITICAL TOOL STATE GROUNDING
+## TOOL STATE
 
-Tool status events are FACTUAL SYSTEM STATE. You MUST NOT invent or assume.
-
-**STATUS TYPES:**
-1. "Initiated X" = Command SENT, NOT completed
-2. "FAILED: X" = Confirmed error
-3. "TIMEOUT: X" = No response
+1. "Initiated X" = command SENT, NOT completed
+2. "FAILED: X" = confirmed error
+3. "TIMEOUT: X" = no response
 4. "X result: ..." = SUCCESSFUL completion
 
-**STRICT RULES:**
-- NEVER say "I found" if you only see "Initiated search" or "FAILED search"
+- NEVER say "I found" if you only see "Initiated" or "FAILED"
 - NEVER describe results you don't have
-- ALWAYS distinguish "started" and "attempted" vs "completed"
-- ALWAYS acknowledge failures explicitly
+- ALWAYS mention failures explicitly in your thought process
 </tool_state_grounding>
-"""
-
-    @staticmethod
-    def get_spoken_response_rules() -> str:
-        """General response rules"""
-        return """
-<spoken_response_rules>
-## SPEAKING DECISION RULES
-- If you've spoken many times lately, or a response is not necessary, you can choose to stay silent.
-- Only form a spoken response if it adds value to the interaction and contributes to the conversation.
-- If the user has not said anything new or if the situation does not warrant a response, you may choose to remain silent.
-- If the user has not spoken in a while, do not spam responses; only respond when it is meaningful to do so or to check in with the user if you have not spoken recently.
-- If you have spoken very similar responses lately and have nothing new to add, remain silent and continue thinking
-- If you decide to speak, include <speak>YES</speak> in your response to indicate you will speak.
-- If you decide not to speak, include <speak>NO</speak> in your response to indicate you will continue thinking and respond later.
-- Respond with <speak>NO</speak> if your responses in recent thought cycles have been repetitive and you have no new value to add in a spoken response. Instead, continue thinking and come up with new ideas, plans, or insights based on your personality and recent context.
-</spoken_response_rules>
 """

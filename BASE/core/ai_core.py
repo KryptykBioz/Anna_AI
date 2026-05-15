@@ -15,7 +15,7 @@ from BASE.core.logger import Logger
 from BASE.core.config import Config
 from BASE.handlers.content_filter import ContentFilter
 
-from personality.controls import KILL_COMMAND
+from BASE.config.controls import KILL_COMMAND
 
 class AICore:
     """Main AI backend orchestrator with modular internal tools"""
@@ -152,22 +152,22 @@ class AICore:
             
             self.tool_hot_reload.register_tool_manager(self.tool_manager)
             
-            self.logger.system("[Hot Reload] Tool hot-reloading ENABLED (GUI reload buttons active)")
+            # self.logger.system("[Hot Reload] Tool hot-reloading ENABLED (GUI reload buttons active)")
         else:
             self.tool_hot_reload = None
-            self.logger.system("[Hot Reload] Tool hot-reloading DISABLED")
+            # self.logger.system("[Hot Reload] Tool hot-reloading DISABLED")
 
         if getattr(controls_module, 'ENABLE_CORE_HOT_RELOAD', False):
             from BASE.core.core_hot_reload_manager import CoreHotReloadManager
             
-            self.logger.system("[Hot Reload] Initializing core hot-reload manager...")
+            # self.logger.system("[Hot Reload] Initializing core hot-reload manager...")
             
             self.core_hot_reload = CoreHotReloadManager(
                 project_root=self.project_root,
                 logger=self.logger
             )
             
-            self.logger.system(f"[Hot Reload] Manager created, enabled={self.core_hot_reload.enabled}")
+            # self.logger.system(f"[Hot Reload] Manager created, enabled={self.core_hot_reload.enabled}")
             
             self.logger.system("[Hot Reload] Registering thought processor constructors...")
             self.processing_delegator.thought_processor.set_hot_reload_manager(self.core_hot_reload)
@@ -176,10 +176,10 @@ class AICore:
             self.processing_delegator.set_hot_reload_manager(self.core_hot_reload)
             
             self.logger.system(f"[Hot Reload] Registered modules: {len(self.core_hot_reload.modules)}")
-            for name, module in self.core_hot_reload.modules.items():
-                self.logger.system(f"[Hot Reload]   - {name}: {module.file_path.name}")
+            # for name, module in self.core_hot_reload.modules.items():
+                # self.logger.system(f"[Hot Reload]   - {name}: {module.file_path.name}")
             
-            self.logger.system("[Hot Reload] Starting file watcher...")
+            # self.logger.system("[Hot Reload] Starting file watcher...")
             self.core_hot_reload.start_watching()
             
             if self.core_hot_reload.observer:
@@ -187,10 +187,10 @@ class AICore:
             else:
                 self.logger.warning("[Hot Reload] Observer failed to start!")
             
-            self.logger.system("[Hot Reload] Core module hot-reloading ENABLED (prompt constructors)")
+            # self.logger.system("[Hot Reload] Core module hot-reloading ENABLED (prompt constructors)")
         else:
             self.core_hot_reload = None
-            self.logger.system("[Hot Reload] Core hot-reloading DISABLED")
+            # self.logger.system("[Hot Reload] Core hot-reloading DISABLED")
 
         if self.tool_hot_reload or self.core_hot_reload:
             systems = []
@@ -198,7 +198,7 @@ class AICore:
                 systems.append("tools")
             if self.core_hot_reload:
                 systems.append("core")
-            self.logger.system(f"[Hot Reload] Active systems: {', '.join(systems)}")
+            # self.logger.system(f"[Hot Reload] Active systems: {', '.join(systems)}")
         
         self.logger.system("[Init] AI Core initialization complete")
 
@@ -316,6 +316,7 @@ class AICore:
             raise RuntimeError(error_msg)
         
         self.logger.system("[Config Check] [SUCCESS] All components share same config instance")
+        self.logger.system("Summarizing past day's conversations to long-term memory. This may take a moment...")
     
     # ========================================================================
     # EVENT LOOP MANAGEMENT
@@ -629,7 +630,7 @@ class AICore:
     
     def _ingest_chat_message_clean(self, chat_msg):
         """Ingest clean ChatMessage into thought buffer"""
-        from personality.bot_info import agentname
+        from BASE.config.bot_info import agentname
         has_mention = agentname.lower() in chat_msg.content.lower()
         
         self.processing_delegator.thought_processor.thought_buffer.ingest_chat_message(

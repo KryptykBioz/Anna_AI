@@ -98,26 +98,93 @@ class ToolManager:
             )
             
     def _resolve_tool_name(self, control_or_tool_name: str) -> Optional[str]:
-        """
-        Resolve a control variable or tool name to the actual tool name
-        
-        CRITICAL: Allows both USE_WIKI_SEARCH and wiki_search to work
-        
-        Args:
-            control_or_tool_name: Either control variable or tool name
-            
-        Returns:
-            Actual tool name or None if not found
-        """
-        # Check if it's a control variable
         if control_or_tool_name in self._control_to_tool_map:
             return self._control_to_tool_map[control_or_tool_name]
-        
-        # Check if it's already a tool name
-        if control_or_tool_name in self._tool_metadata:
+
+        if control_or_tool_name in self.lifecycle_manager._tool_metadata:
             return control_or_tool_name
-        
+
         return None
+    
+    async def refresh_tools(self) -> Dict[str, Any]:
+        """
+        Re-discover tools from disk, rebuild control mapping, and restart
+        any tools whose control variable is still enabled.
+
+        Safe to call at runtime. Stops all active tools first, then
+        rediscovers and restarts enabled ones.
+
+        Returns:
+            Dict with keys: stopped, discovered, started, failed
+        """
+        stopped = list(self._active_tools.keys())
+        self._starting_tools.clear()
+
+        await self.lifecycle_manager.cleanup_all_tools()
+
+        if self.logger:
+            self.logger.system(
+                f"[Tool Manager] Refresh: stopped {len(stopped)} tool(s), rediscovering..."
+            )
+
+        discovered = self.lifecycle_manager.refresh_tool_discovery()
+        self._build_control_mapping(discovered)
+
+        if self.logger:
+            self.logger.system(
+                f"[Tool Manager] Refresh: discovered {len(discovered)} tool(s)"
+            )
+
+        started = []
+        failed = []
+
+        if not self._event_loop:
+            if self.logger:
+                self.logger.warning("[Tool Manager] Refresh: no event loop — skipping restart")
+            return {'stopped': stopped, 'discovered': list(discovered.keys()), 'started': started, 'failed': failed}
+
+        for tool_name, metadata in self.lifecycle_manager._tool_metadata.items():
+            control_var = metadata.get('control_variable_name')
+            if not control_var:
+                continue
+
+            if not getattr(self.controls, control_var, False):
+                continue
+
+            self._starting_tools.add(tool_name)
+            try:
+                success = await self.lifecycle_manager.start_tool(
+                    tool_name=tool_name,
+                    config=self.config,
+                    controls=self.controls
+                )
+                if success:
+                    started.append(tool_name)
+                    if self.logger:
+                        self.logger.success(f"[Tool Manager] Refresh: restarted {tool_name}")
+                else:
+                    failed.append(tool_name)
+                    if self.logger:
+                        self.logger.error(f"[Tool Manager] Refresh: failed to restart {tool_name}")
+            except Exception as e:
+                failed.append(tool_name)
+                if self.logger:
+                    self.logger.error(f"[Tool Manager] Refresh: error restarting {tool_name}: {e}")
+            finally:
+                self._starting_tools.discard(tool_name)
+
+        if self.logger:
+            self.logger.success(
+                f"[Tool Manager] Refresh complete — "
+                f"started: {started}, failed: {failed}"
+            )
+
+        return {
+            'stopped': stopped,
+            'discovered': list(discovered.keys()),
+            'started': started,
+            'failed': failed
+        }
     
     async def start_enabled_tools(self):
         """
@@ -588,6 +655,20 @@ class ToolManager:
                 )
 
             result = await tool_instance.execute(command, args)
+
+            if result is None:
+                error_content = f"{tool_name}.{command} returned None (unhandled code path)"
+                self.action_state_manager.fail_action(
+                    action_id=action_id, error=error_content
+                )
+                thought_buffer.add_processed_thought(
+                    content=f"{tool_name} failed: {error_content}",
+                    source='tool_failed',
+                    original_ref=str(args)
+                )
+                if self.logger:
+                    self.logger.error(f"[Tool Manager] {error_content}")
+                return
 
             if result.get('success'):
                 content = result.get('content', '')

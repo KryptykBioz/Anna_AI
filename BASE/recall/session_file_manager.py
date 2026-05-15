@@ -1,4 +1,4 @@
-# Filename: BASE/memory/session_file_manager.py
+# Filename: BASE/recall/session_file_manager.py
 """
 Session File Manager - Temporary file reference system
 Refactored for centralized architecture with dependency injection
@@ -21,24 +21,28 @@ class SessionFileManager:
     
     __slots__ = (
         'logger', 'memory_manager', 'project_root', 'max_file_size_bytes',
-        'session_files'
+        'session_files', 'config', '_chunk_size'
     )
     
     def __init__(
-        self, 
+        self,
         logger: Logger,
         memory_manager,
         project_root: Path,
-        max_file_size_mb: float = 1.0
+        max_file_size_mb: float = 1.0,
+        config=None
     ):
-        self.logger = logger
-        self.memory_manager = memory_manager
-        self.project_root = project_root
+        self.logger           = logger
+        self.memory_manager   = memory_manager
+        self.project_root     = project_root
         self.max_file_size_bytes = int(max_file_size_mb * 1024 * 1024)
-        
-        # In-memory file storage
+        self.config           = config
         self.session_files: Dict[str, Dict[str, Any]] = {}
-        
+
+        max_chars        = max(50, getattr(config, 'MAX_TOOL_RESULT_CHARS', 1000)) if config else 1000
+        n_results        = max(1,  getattr(config, 'MAX_TOOL_RESULTS',       3))   if config else 3
+        self._chunk_size = max(50, max_chars // n_results)
+
         self.logger.system("[SUCCESS] Session File Manager initialized")
         
     def add_file(self, filepath: str, content: str, file_type: str = "auto") -> Dict[str, Any]:
@@ -264,32 +268,34 @@ class SessionFileManager:
         
         return sections
     
-    def _extract_generic_sections(self, content: str, chunk_size: int = 500) -> List[Dict[str, Any]]:
-        """Extract generic text sections by chunking"""
-        sections = []
-        lines = content.split('\n')
+    def _extract_generic_sections(self, content: str, chunk_size: int = None) -> List[Dict[str, Any]]:
+        if chunk_size is None:
+            chunk_size = self._chunk_size
+
+        sections     = []
+        lines        = content.split('\n')
         current_chunk = []
         current_size = 0
         chunk_number = 1
-        line_start = 1
-        
+        line_start   = 1
+
         for i, line in enumerate(lines):
             current_chunk.append(line)
             current_size += len(line)
-            
+
             if current_size >= chunk_size or i == len(lines) - 1:
                 sections.append({
-                    'type': 'chunk',
-                    'name': f'Section {chunk_number}',
-                    'content': '\n'.join(current_chunk),
+                    'type':       'chunk',
+                    'name':       f'Section {chunk_number}',
+                    'content':    '\n'.join(current_chunk),
                     'line_start': line_start,
-                    'line_end': i + 1
+                    'line_end':   i + 1
                 })
                 current_chunk = []
-                current_size = 0
+                current_size  = 0
                 chunk_number += 1
-                line_start = i + 2
-        
+                line_start    = i + 2
+
         return sections
     
     def _extract_keywords(self, text: str, min_length: int = 3, max_keywords: int = 50) -> set:
@@ -315,89 +321,54 @@ class SessionFileManager:
         return {word for word, count in sorted_words[:max_keywords]}
     
     def _truncate_text(self, text: str, max_length: int = 1000) -> str:
-        """
-        Truncate text at natural boundary with max_length limit
-        
-        Args:
-            text: Text to truncate
-            max_length: Maximum character limit (default 1000)
-        
-        Returns:
-            Truncated text with [...] suffix if truncated
-        """
         if len(text) <= max_length:
             return text
-        
+
         truncated = text[:max_length]
-        
-        # Try to break at paragraph
+
         para_break = truncated.rfind('\n\n')
         if para_break > max_length * 0.6:
             return text[:para_break].strip() + "\n\n[...]"
-        
-        # Try to break at line
+
         line_break = truncated.rfind('\n')
         if line_break > max_length * 0.7:
             return text[:line_break].strip() + "\n[...]"
-        
-        # Try to break at sentence
+
         sentence_ends = [truncated.rfind('.'), truncated.rfind('!'), truncated.rfind('?')]
         last_sentence = max(sentence_ends)
         if last_sentence > max_length * 0.7:
             return text[:last_sentence + 1].strip() + " [...]"
-        
-        # Break at word
+
         last_space = truncated.rfind(' ')
         if last_space > 0:
             return text[:last_space].strip() + " [...]"
-        
+
         return truncated.strip() + " [...]"
     
     def search(self, query: str, file_id: Optional[str] = None, top_k: int = 5) -> List[Dict[str, Any]]:
-        """
-        Search for relevant sections in session files
-        
-        Args:
-            query: Search query
-            file_id: Specific file to search (None = search all)
-            top_k: Number of top results to return
-            
-        Returns:
-            List of relevant sections with scores (content truncated to 1000 chars)
-        """
-        query_keywords = self._extract_keywords(query.lower())
-        results = []
-        
-        # Determine which files to search
-        files_to_search = {file_id: self.session_files[file_id]} if file_id else self.session_files
-        
+        query_keywords   = self._extract_keywords(query.lower())
+        results          = []
+        files_to_search  = {file_id: self.session_files[file_id]} if file_id else self.session_files
+
         for fid, file_data in files_to_search.items():
             for section in file_data['sections']:
-                # Calculate relevance score
                 section_keywords = set(section.get('keywords', []))
-                keyword_overlap = len(query_keywords & section_keywords)
-                
-                # Also check for direct text match
-                text_match = sum(1 for kw in query_keywords if kw in section['content'].lower())
-                
-                score = keyword_overlap * 2 + text_match
-                
+                keyword_overlap  = len(query_keywords & section_keywords)
+                text_match       = sum(1 for kw in query_keywords if kw in section['content'].lower())
+                score            = keyword_overlap * 2 + text_match
+
                 if score > 0:
-                    # [Changed] Truncate content to 1000 chars
-                    truncated_content = self._truncate_text(section['content'], 1000)
-                    
                     results.append({
-                        'file_id': fid,
-                        'filename': file_data['filename'],
+                        'file_id':      fid,
+                        'filename':     file_data['filename'],
                         'section_name': section['name'],
                         'section_type': section['type'],
-                        'content': truncated_content,
-                        'line_start': section['line_start'],
-                        'line_end': section['line_end'],
-                        'score': score
+                        'content':      self._truncate_text(section['content'], self._chunk_size),
+                        'line_start':   section['line_start'],
+                        'line_end':     section['line_end'],
+                        'score':        score
                     })
-        
-        # Sort by score and return top k
+
         results.sort(key=lambda x: x['score'], reverse=True)
         return results[:top_k]
     

@@ -126,14 +126,14 @@ def test_audio_level(device_idx, duration=3):
 def get_username():
     """Get username from bot_info or user input"""
     try:
-        from personality.bot_info import username
+        from BASE.config.bot_info import username
         print(f"[INFO] Detected username from bot_info: {username}")
         confirm = input(f"Use '{username}' as username? (Y/n): ").strip().lower()
         
         if confirm in ('', 'y', 'yes'):
             return username
     except ImportError:
-        print("[INFO] Could not import username from personality.bot_info")
+        print("[INFO] Could not import username from BASE.config.bot_info")
     
     while True:
         username = input("Enter username for voice sample: ").strip()

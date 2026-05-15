@@ -65,20 +65,20 @@ class CoreInitializer:
             from BASE.recall.memory_manager import MemoryManager
             from BASE.recall.memory_search import MemorySearch
             from BASE.recall.session_file_manager import SessionFileManager
-            
+
             self.memory_manager = MemoryManager(
                 config=self.config,
                 controls_module=self.controls,
                 logger=self.logger,
                 project_root=self.project_root
             )
-            
-            self.memory_search = MemorySearch(self.memory_manager)
-            
+
+            self.memory_search = MemorySearch(self.memory_manager, config=self.config)
+
             self.session_file_manager = SessionFileManager(
                 self.logger, self.memory_manager, self.project_root
             )
-            
+
             self.logger.system("Memory system initialized")
         except Exception as e:
             self.logger.error(f"Memory system initialization failed: {e}")

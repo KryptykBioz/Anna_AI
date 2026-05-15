@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 from datetime import datetime
-from personality.bot_info import agentname, username
+from BASE.config.bot_info import agentname, username
 from BASE.core.logger import MessageType, Logger
 
 class ChatView:
@@ -47,18 +47,8 @@ class ChatView:
         return "Courier New" if theme_name == "Cyber" else "Segoe UI"
     
     def create_chat_view(self):
-        """Create the Chat view with system panel and chat panel"""
-        chat_paned = ttk.PanedWindow(self.parent.chat_view, orient=tk.HORIZONTAL)
-        chat_paned.pack(fill=tk.BOTH, expand=True)
-        
-        left_frame = ttk.Frame(chat_paned)
-        chat_paned.add(left_frame, weight=1)
-        
-        right_frame = ttk.Frame(chat_paned)
-        chat_paned.add(right_frame, weight=1)
-        
-        self.create_system_panel(left_frame)
-        self.create_chat_panel(right_frame)
+        """Deprecated: layout now handled by UIBuilder. No-op stub."""
+        pass
 
     def create_system_panel(self, parent_frame):
         """Create system information panel"""

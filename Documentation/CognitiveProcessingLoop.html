@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anna AI — Full System Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0c0f;
+  --bg2:#0f1216;
+  --bg3:#141820;
+  --border:#1e2530;
+  --border2:#263040;
+  --text:#c8d4e0;
+  --text2:#7a8fa8;
+  --text3:#3d5066;
+  --accent:#4af0c4;
+  --accent2:#2bb89a;
+  --purple:#a78bfa;
+  --amber:#f59e0b;
+  --coral:#f97316;
+  --red:#ef4444;
+  --blue:#60a5fa;
+  --green:#22c55e;
+  --teal:#2dd4bf;
+  --pink:#f472b6;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans',sans-serif;
+}
+html{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
+body{max-width:1280px;margin:0 auto;padding:2rem 1.5rem 5rem}
+
+header{margin-bottom:2.5rem;border-bottom:1px solid var(--border);padding-bottom:1.5rem}
+.logo{font-family:var(--mono);font-size:.72rem;color:var(--accent);letter-spacing:.15em;text-transform:uppercase;margin-bottom:.4rem}
+h1{font-size:1.7rem;font-weight:300;color:#e8f0f8;letter-spacing:-.02em;line-height:1.2}
+h1 span{color:var(--accent);font-weight:500}
+.subtitle{font-size:.82rem;color:var(--text2);margin-top:.4rem;font-family:var(--mono)}
+
+/* ── Nav tabs ─────────────────────────────────────────────────── */
+.tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:2rem;border-bottom:1px solid var(--border);padding-bottom:.75rem}
+.tab{font-family:var(--mono);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;padding:.35rem .85rem;border:1px solid var(--border2);border-radius:3px;color:var(--text3);cursor:pointer;background:transparent;transition:all .15s}
+.tab:hover{color:var(--text2);border-color:var(--text3)}
+.tab.active{color:var(--accent);border-color:var(--accent2);background:#071a15}
+
+/* ── Sections ─────────────────────────────────────────────────── */
+.section{display:none}
+.section.active{display:block}
+
+/* ── Legend ───────────────────────────────────────────────────── */
+.legend{display:flex;flex-wrap:wrap;gap:.6rem 1.25rem;margin-bottom:2rem;padding:.9rem 1.1rem;background:var(--bg2);border:1px solid var(--border);border-radius:5px}
+.legend-item{display:flex;align-items:center;gap:.45rem;font-size:.72rem;color:var(--text2);font-family:var(--mono)}
+.legend-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+
+/* ── Lane wrapper ─────────────────────────────────────────────── */
+.diagram{display:flex;flex-direction:column;gap:0}
+.lane{display:grid;grid-template-columns:130px 1fr;gap:0;border-bottom:1px solid var(--border)}
+.lane:last-child{border-bottom:none}
+.lane-label{padding:1.1rem .7rem 1.1rem 0;display:flex;align-items:flex-start;justify-content:flex-end;border-right:1px solid var(--border)}
+.lane-label span{font-family:var(--mono);font-size:.62rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;text-align:right;line-height:1.4}
+.lane-content{padding:1.1rem .9rem 1.1rem 1.35rem;display:flex;flex-direction:column;gap:.85rem}
+
+/* ── Flow row ─────────────────────────────────────────────────── */
+.flow-row{display:flex;align-items:center;gap:0;flex-wrap:nowrap}
+
+/* ── Nodes ────────────────────────────────────────────────────── */
+.node{display:inline-flex;flex-direction:column;border:1px solid var(--border2);border-radius:4px;padding:.5rem .8rem;background:var(--bg3);flex-shrink:0;position:relative}
+.node-title{font-size:.76rem;font-weight:500;color:var(--text);line-height:1.3;white-space:nowrap}
+.node-sub{font-family:var(--mono);font-size:.63rem;color:var(--text2);margin-top:.18rem;line-height:1.3;white-space:nowrap}
+.node.accent{border-color:var(--accent2);background:#071a15}.node.accent .node-title{color:var(--accent)}
+.node.purple{border-color:#6d5fa8;background:#100e1a}.node.purple .node-title{color:var(--purple)}
+.node.amber{border-color:#92600a;background:#1a1005}.node.amber .node-title{color:var(--amber)}
+.node.coral{border-color:#9a4910;background:#1a0f05}.node.coral .node-title{color:var(--coral)}
+.node.blue{border-color:#2a5c9a;background:#040e1a}.node.blue .node-title{color:var(--blue)}
+.node.red{border-color:#8a2020;background:#180808}.node.red .node-title{color:var(--red)}
+.node.green{border-color:#166a34;background:#051209}.node.green .node-title{color:var(--green)}
+.node.teal{border-color:#0e6b60;background:#041210}.node.teal .node-title{color:var(--teal)}
+.node.pink{border-color:#8a3060;background:#1a0810}.node.pink .node-title{color:var(--pink)}
+.node.dim{opacity:.5}
+
+/* ── Arrows ───────────────────────────────────────────────────── */
+.arr{display:flex;align-items:center;padding:0 .35rem;color:var(--text3);font-size:.78rem;flex-shrink:0;white-space:nowrap}
+.arr-label{font-family:var(--mono);font-size:.58rem;color:var(--text3);padding:0 .25rem;letter-spacing:.04em}
+
+/* ── Decision diamond ─────────────────────────────────────────── */
+.diamond{position:relative;width:88px;height:52px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.diamond::before{content:'';position:absolute;inset:0;background:var(--bg3);border:1px solid var(--border2);transform:rotate(45deg) scale(.6);border-radius:3px}
+.diamond.amber::before{background:#1a1005;border-color:#92600a}
+.diamond.purple::before{background:#100e1a;border-color:#6d5fa8}
+.diamond.accent::before{background:#071a15;border-color:var(--accent2)}
+.diamond.blue::before{background:#040e1a;border-color:#2a5c9a}
+.diamond-text{position:relative;z-index:1;font-size:.68rem;font-weight:500;color:var(--text);text-align:center;line-height:1.2;padding:0 .2rem}
+.diamond.amber .diamond-text{color:var(--amber)}
+.diamond.purple .diamond-text{color:var(--purple)}
+.diamond.accent .diamond-text{color:var(--accent)}
+.diamond.blue .diamond-text{color:var(--blue)}
+
+/* ── Tags ─────────────────────────────────────────────────────── */
+.tag{font-family:var(--mono);font-size:.62rem;padding:.13rem .42rem;border-radius:3px;display:inline-block;flex-shrink:0}
+.tag.green{background:#071409;color:var(--green);border:1px solid #166a34}
+.tag.amber{background:#1a1005;color:var(--amber);border:1px solid #92600a}
+.tag.coral{background:#1a0f05;color:var(--coral);border:1px solid #9a4910}
+.tag.red{background:#180808;color:var(--red);border:1px solid #8a2020}
+.tag.purple{background:#100e1a;color:var(--purple);border:1px solid #6d5fa8}
+.tag.blue{background:#040e1a;color:var(--blue);border:1px solid #2a5c9a}
+.tag.accent{background:#071a15;color:var(--accent);border:1px solid var(--accent2)}
+.tag.teal{background:#041210;color:var(--teal);border:1px solid #0e6b60}
+.tag.pink{background:#1a0810;color:var(--pink);border:1px solid #8a3060}
+.tag.dim{background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
+
+/* ── Note ─────────────────────────────────────────────────────── */
+.note{font-family:var(--mono);font-size:.62rem;color:var(--text3);padding:.38rem .65rem;border:1px dashed var(--border);border-radius:4px;line-height:1.45;flex-shrink:0}
+.note.warn{border-color:#92600a;color:var(--amber)}
+.note.info{border-color:#2a5c9a;color:var(--blue)}
+
+/* ── Section divider ──────────────────────────────────────────── */
+.group-header{font-family:var(--mono);font-size:.58rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;border-top:1px dashed var(--border);padding-top:.55rem;margin-top:.1rem}
+
+/* ── Loop marker ──────────────────────────────────────────────── */
+.loop-marker{font-family:var(--mono);font-size:.62rem;color:var(--text3);padding:.3rem .65rem;border:1px solid var(--border);border-radius:16px;display:inline-flex;align-items:center;gap:.32rem;flex-shrink:0}
+.loop-marker .dot{width:5px;height:5px;border-radius:50%;background:var(--accent);opacity:.6;flex-shrink:0}
+
+/* ── Branch row ───────────────────────────────────────────────── */
+.branch-row{display:flex;gap:1.25rem;align-items:flex-start;flex-wrap:wrap}
+.branch{display:flex;flex-direction:column;gap:.28rem;align-items:flex-start}
+.branch-label{font-family:var(--mono);font-size:.58rem;color:var(--text3);letter-spacing:.06em}
+
+/* ── Key-value grid ───────────────────────────────────────────── */
+.kv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.5rem}
+.kv-item{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:.5rem .7rem}
+.kv-key{font-family:var(--mono);font-size:.62rem;color:var(--text2);margin-bottom:.15rem}
+.kv-val{font-size:.75rem;font-weight:500;color:var(--text)}
+
+/* ── Wrap row ─────────────────────────────────────────────────── */
+.wrap-row{display:flex;flex-wrap:wrap;gap:.4rem .6rem;align-items:flex-start}
+
+/* ── Section headings inside panels ──────────────────────────── */
+.panel-title{font-family:var(--mono);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:1rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+
+footer{margin-top:3rem;padding-top:1.25rem;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:.75rem 1.75rem;font-family:var(--mono);font-size:.62rem;color:var(--text3)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Anna AI — System Architecture v2</div>
+  <h1>Full System Architecture: <span>Cognitive Loop, Handlers &amp; Memory</span></h1>
+  <div class="subtitle">BASE/core · BASE/handlers · BASE/recall — complete operating map</div>
+</header>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab active" onclick="showTab('cognitive')">Cognitive Loop</button>
+  <button class="tab" onclick="showTab('tools')">Tool System</button>
+  <button class="tab" onclick="showTab('handlers')">Handlers</button>
+  <button class="tab" onclick="showTab('memory')">Memory &amp; Recall</button>
+  <button class="tab" onclick="showTab('data-flow')">Full Data Flow</button>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     TAB 1 — COGNITIVE LOOP
+════════════════════════════════════════════════════════════════ -->
+<div class="section active" id="tab-cognitive">
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#4af0c4"></div>Entry / loop control</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>Cognitive mode (LLM call)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Decision / gate</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div>Memory / context</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div>Tool execution</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Output / delivery</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Error / recovery</div>
+</div>
+<div class="diagram">
+
+  <!-- INIT -->
+  <div class="lane">
+    <div class="lane-label"><span>Init &amp;<br>startup</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node accent"><div class="node-title">CoreInitializer</div><div class="node-sub">core_initializer.py</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">ThoughtProcessor</div><div class="node-sub">+ ThoughtBuffer + ThinkingModes</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">MemorySearch</div><div class="node-sub">SessionFileManager</div></div>
+        <div class="arr">→</div>
+        <div class="node coral"><div class="node-title">ToolManager</div><div class="node-sub">injected via set_tool_manager()</div></div>
+        <div class="arr">→</div>
+        <div class="node accent"><div class="node-title">start_continuous_loop()</div><div class="node-sub">asyncio task created</div></div>
+      </div>
+      <div class="flow-row" style="gap:.6rem">
+        <div class="note">CognitiveLoopRecovery — max_auto_restarts=3, cooldown=5s, max_backoff=30s, success_threshold=300s</div>
+        <div class="arr" style="padding:0 .5rem">+</div>
+        <div class="note">SpeakJudge — secondary LLM veto for low-value TTS; fast-path on unresponded user input</div>
+        <div class="arr" style="padding:0 .5rem">+</div>
+        <div class="note">CognitiveFilter — context / language / duplicate filter (fail-open on Ollama timeout)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOOP GUARD -->
+  <div class="lane">
+    <div class="lane-label"><span>Loop guard</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node accent"><div class="node-title">&#x21BA; Loop iteration</div><div class="node-sub">total_cycles++</div></div>
+        <div class="arr">→</div>
+        <div class="diamond amber"><div class="diamond-text">shutdown<br>flags?</div></div>
+        <div class="arr"><span class="arr-label">NO</span>→</div>
+        <div class="diamond amber"><div class="diamond-text">LIMIT_<br>PROC?</div></div>
+        <div class="arr"><span class="arr-label">pass</span>→</div>
+        <div class="node accent"><div class="node-title">_is_processing guard</div><div class="node-sub">returns False if already locked</div></div>
+      </div>
+      <div class="wrap-row" style="gap:.5rem;margin-top:.1rem">
+        <div class="node red dim"><div class="node-title">STOP — is_running=False</div><div class="node-sub">↑ if shutdown flag YES</div></div>
+        <div class="node dim"><div class="node-title">return False (skip cycle)</div><div class="node-sub">↑ if cooldown remaining</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTEXT BUILD -->
+  <div class="lane">
+    <div class="lane-label"><span>Context<br>build</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node blue"><div class="node-title">ThinkingModes.build_thought_context()</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">tool_state_summary</div><div class="node-sub">pending / stale ≥60s → raw event injection</div></div>
+        <div class="arr">+</div>
+        <div class="node blue"><div class="node-title">session_file_manager</div><div class="node-sub">query-matched file context</div></div>
+        <div class="arr">+</div>
+        <div class="node blue"><div class="node-title">user_ctx / ongoing_ctx / goal_summary</div><div class="node-sub">from ThoughtBuffer state</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THOUGHT PROCESSING -->
+  <div class="lane">
+    <div class="lane-label"><span>Thought<br>processing</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node blue"><div class="node-title">ThoughtBuffer — unprocessed events?</div><div class="node-sub">get_unprocessed_events()</div></div>
+      </div>
+      <div class="branch-row">
+        <div class="branch">
+          <div class="branch-label">YES — raw events exist</div>
+          <div class="node purple"><div class="node-title">_reactive_processing()</div><div class="node-sub">ReactiveConstructor → Ollama LLM</div></div>
+          <div class="arr" style="padding:.15rem 0">↓</div>
+          <div class="wrap-row" style="gap:.3rem">
+            <div class="tag green">&lt;next_mode&gt;</div>
+            <div class="tag amber">&lt;speak&gt;</div>
+            <div class="tag coral">[actions]</div>
+          </div>
+        </div>
+        <div class="branch" style="margin-left:1rem">
+          <div class="branch-label">NO — proactive / reflective path</div>
+          <div class="node purple"><div class="node-title">_proactive_processing()</div><div class="node-sub">Proactive or Reflective constructor</div></div>
+          <div class="arr" style="padding:.15rem 0">↓</div>
+          <div class="branch-label">timer &gt;6min → reflective; else proactive</div>
+        </div>
+        <div class="branch" style="margin-left:1rem">
+          <div class="branch-label">Chat engagement (pre-check)</div>
+          <div class="node blue"><div class="node-title">ChatEventConverter</div><div class="node-sub">converts unengaged → raw events</div></div>
+          <div class="arr" style="padding:.15rem 0">↓</div>
+          <div class="node blue"><div class="node-title">thought_buffer.ingest_raw_data()</div></div>
+        </div>
+      </div>
+      <div class="group-header">Mode routing — &lt;next_mode&gt; tag primary; timer fallback</div>
+      <div class="wrap-row" style="margin-top:.25rem">
+        <div class="node purple"><div class="node-title">reactive</div><div class="node-sub">new input</div></div>
+        <div class="arr">|</div>
+        <div class="node purple"><div class="node-title">proactive</div><div class="node-sub">&lt;6min idle</div></div>
+        <div class="arr">|</div>
+        <div class="node purple"><div class="node-title">reflective</div><div class="node-sub">≥6min idle</div></div>
+        <div class="arr">|</div>
+        <div class="node coral"><div class="node-title">action</div><div class="node-sub">tool call queued</div></div>
+        <div class="arr">→</div>
+        <div class="note">ActionConstructor — resumes at last requested next_mode after tool completes</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPEAK GATE -->
+  <div class="lane">
+    <div class="lane-label"><span>Speak gate<br>(2-stage)</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="diamond amber"><div class="diamond-text">&lt;speak&gt;<br>YES?</div></div>
+        <div class="arr">→</div>
+        <div class="diamond amber"><div class="diamond-text">LIMIT_<br>SPEAKING?</div></div>
+        <div class="arr"><span class="arr-label">NO or pass</span>→</div>
+        <div class="node purple"><div class="node-title">SpeakJudge.should_speak()</div><div class="node-sub">secondary LLM — thought_model</div></div>
+        <div class="arr"><span class="arr-label">APPROVED</span>→</div>
+        <div class="node accent"><div class="node-title">_generate_response()</div></div>
+      </div>
+      <div class="wrap-row" style="margin-top:.2rem;gap:.6rem">
+        <div class="node dim"><div class="node-title">↓ rate-blocked</div><div class="node-sub">trigger.clear() — logs remaining seconds</div></div>
+        <div class="node dim"><div class="node-title">↓ judge DENIED</div><div class="node-sub">trigger.clear() — repetitive suppressed</div></div>
+        <div class="note">Fast-path: unresponded user input → judge auto-approves. Fail-open on LLM error.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COGNITIVE FILTER -->
+  <div class="lane">
+    <div class="lane-label"><span>Cognitive<br>filter</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node purple"><div class="node-title">ProcessingDelegator._generate_responsive_response()</div><div class="node-sub">ResponsiveConstructor → Ollama → response text</div></div>
+        <div class="arr">→</div>
+        <div class="node purple"><div class="node-title">CognitiveFilter.check_response()</div><div class="node-sub">filter_model (independent Ollama call)</div></div>
+      </div>
+      <div class="branch-row" style="margin-top:.2rem">
+        <div class="branch"><div class="tag accent">PASS</div><div class="arr" style="padding:.1rem 0">↓</div><div class="node green"><div class="node-title">update_last_response()</div><div class="node-sub">proceed to delivery</div></div></div>
+        <div class="branch"><div class="tag red">FAIL:CONTEXT</div><div class="arr" style="padding:.1rem 0">↓</div><div class="node red dim"><div class="node-title">discard silently</div></div></div>
+        <div class="branch"><div class="tag red">FAIL:LANGUAGE</div><div class="arr" style="padding:.1rem 0">↓</div><div class="node red dim"><div class="node-title">discard silently</div></div></div>
+        <div class="branch"><div class="tag red">FAIL:DUPLICATE</div><div class="arr" style="padding:.1rem 0">↓</div><div class="node red dim"><div class="node-title">discard silently</div></div></div>
+        <div class="branch"><div class="tag dim">timeout</div><div class="arr" style="padding:.1rem 0">↓</div><div class="node dim"><div class="node-title">fail-open</div></div></div>
+      </div>
+      <div class="note" style="margin-top:.25rem">Local exact-duplicate check before Ollama call. Trivial responses ≤8 words exempt from duplicate check.</div>
+    </div>
+  </div>
+
+  <!-- DELIVERY -->
+  <div class="lane">
+    <div class="lane-label"><span>Delivery</span></div>
+    <div class="lane-content">
+      <div class="wrap-row">
+        <div class="node green"><div class="node-title">autonomous_response_callback()</div><div class="node-sub">GUI / TTS output</div></div>
+        <div class="node green"><div class="node-title">MemoryManager.save_bot_response()</div><div class="node-sub">short_memory append</div></div>
+        <div class="node green"><div class="node-title">thought_buffer.add_response_echo()</div><div class="node-sub">[SELF] tag written back</div></div>
+        <div class="node coral"><div class="node-title">group_chat.broadcast()</div><div class="node-sub">peer WebSocket</div></div>
+        <div class="node coral"><div class="node-title">discord_tool._send_dm()</div><div class="node-sub">if active &amp; no intercept</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CRASH RECOVERY -->
+  <div class="lane">
+    <div class="lane-label"><span>Crash<br>recovery</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node red"><div class="node-title">Exception in _cognitive_loop()</div></div>
+        <div class="arr">→</div>
+        <div class="node red"><div class="node-title">CognitiveLoopRecovery.on_crash()</div><div class="node-sub">CrashEvent logged, counters updated</div></div>
+      </div>
+      <div class="branch-row" style="margin-top:.2rem">
+        <div class="branch"><div class="tag green">AUTO_RESTART=True &amp; crashes ≤3</div><div class="arr" style="padding:.1rem 0">↓</div><div class="node green"><div class="node-title">exponential backoff</div><div class="node-sub">5s → 10s → 20s (cap 30s)</div></div><div class="arr" style="padding:.1rem 0">↓</div><div class="loop-marker"><div class="dot"></div>continue — loop restarts</div></div>
+        <div class="branch"><div class="tag red">crashes &gt;3</div><div class="arr" style="padding:.1rem 0">↓</div><div class="node red"><div class="node-title">break — STOPPED</div><div class="node-sub">restart_cognition() required</div></div></div>
+        <div class="branch"><div class="tag dim">AUTO_RESTART=False</div><div class="arr" style="padding:.1rem 0">↓</div><div class="node red dim"><div class="node-title">break on first error</div></div></div>
+        <div class="branch"><div class="tag accent">run ≥300s</div><div class="arr" style="padding:.1rem 0">↓</div><div class="node accent"><div class="node-title">crash_count → 0</div><div class="node-sub">success_threshold reached</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CYCLE END -->
+  <div class="lane">
+    <div class="lane-label"><span>Cycle end</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node"><div class="node-title">await asyncio.sleep(0.1)</div><div class="node-sub">anti-spin yield</div></div>
+        <div class="arr">→</div>
+        <div class="node"><div class="node-title">periodic stats log (every 300s)</div><div class="node-sub">reactive/proactive/idle % + judge denial rate</div></div>
+        <div class="arr">→</div>
+        <div class="node"><div class="node-title">periodic_memory_integration()</div></div>
+        <div class="arr">→</div>
+        <div class="loop-marker"><div class="dot"></div>&#x21BA; back to Loop guard</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /diagram -->
+</div><!-- /section cognitive -->
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     TAB 2 — TOOL SYSTEM
+════════════════════════════════════════════════════════════════ -->
+<div class="section" id="tab-tools">
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div>External tools (BaseTool)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#2dd4bf"></div>Internal tools (service)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Lifecycle / control</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div>Metadata / discovery</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Result / output</div>
+</div>
+<div class="diagram">
+
+  <!-- DISCOVERY -->
+  <div class="lane">
+    <div class="lane-label"><span>Discovery</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node blue"><div class="node-title">ToolLifecycleManager.discover_tools()</div><div class="node-sub">BASE/tools/installed/ — iterates directories</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">_load_json_cached(information.json)</div><div class="node-sub">mtime-checked LRU cache — avoids re-parse</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">minimal metadata extracted</div><div class="node-sub">tool_name, control_variable_name, description</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">ToolManager._build_control_mapping()</div><div class="node-sub">USE_WIKI_SEARCH → wiki_search</div></div>
+      </div>
+      <div class="note info" style="margin-top:.15rem">Lazy loading — full metadata only fetched when tool is actually called or instructions requested</div>
+    </div>
+  </div>
+
+  <!-- ENABLE / START -->
+  <div class="lane">
+    <div class="lane-label"><span>Enable &amp;<br>start</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node amber"><div class="node-title">start_enabled_tools()</div><div class="node-sub">checks controls.USE_* flags at startup</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">_resolve_tool_name()</div><div class="node-sub">control_var → tool_name lookup</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">_start_tool()</div><div class="node-sub">lifecycle_manager.load_tool_class() → instantiate</div></div>
+        <div class="arr">→</div>
+        <div class="node coral"><div class="node-title">BaseTool.start()</div><div class="node-sub">initialize() → _running=True → context_loop task</div></div>
+      </div>
+      <div class="flow-row" style="margin-top:.25rem">
+        <div class="node amber"><div class="node-title">handle_control_update(var, bool)</div><div class="node-sub">runtime toggle — start or stop tool</div></div>
+        <div class="arr">→</div>
+        <div class="note">Race condition guard: _starting_tools set prevents double-start</div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">wait_for_tool_ready(name, timeout)</div><div class="node-sub">polls is_available() until ready or timeout</div></div>
+      </div>
+      <div class="flow-row" style="margin-top:.25rem">
+        <div class="node amber"><div class="node-title">refresh_tools()</div><div class="node-sub">re-discover from disk at runtime — hot-reload</div></div>
+        <div class="arr">→</div>
+        <div class="note">Stops all active tools → rediscovers → restarts enabled ones. Returns {stopped, discovered, started, failed}.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BASETOOL CONTRACT -->
+  <div class="lane">
+    <div class="lane-label"><span>BaseTool<br>contract</span></div>
+    <div class="lane-content">
+      <div class="group-header">Required abstract methods</div>
+      <div class="wrap-row" style="margin-top:.3rem">
+        <div class="node coral"><div class="node-title">name</div><div class="node-sub">property — tool identifier</div></div>
+        <div class="node coral"><div class="node-title">initialize() → bool</div><div class="node-sub">connect / setup / verify</div></div>
+        <div class="node coral"><div class="node-title">cleanup()</div><div class="node-sub">disconnect / free resources</div></div>
+        <div class="node coral"><div class="node-title">is_available() → bool</div><div class="node-sub">ready-check before execute</div></div>
+        <div class="node coral"><div class="node-title">execute(command, args) → Dict</div><div class="node-sub">standardized result dict</div></div>
+      </div>
+      <div class="group-header">Optional</div>
+      <div class="wrap-row" style="margin-top:.3rem">
+        <div class="node coral"><div class="node-title">has_context_loop() → bool</div><div class="node-sub">return True to enable background task</div></div>
+        <div class="node coral"><div class="node-title">context_loop(thought_buffer)</div><div class="node-sub">injects periodic updates to ThoughtBuffer</div></div>
+      </div>
+      <div class="group-header">Helpers</div>
+      <div class="wrap-row" style="margin-top:.3rem">
+        <div class="node green"><div class="node-title">_success_result(content, metadata)</div><div class="node-sub">{success:True, content, source, metadata, guidance}</div></div>
+        <div class="node red dim"><div class="node-title">_error_result(content, guidance)</div><div class="node-sub">{success:False, …}</div></div>
+        <div class="node"><div class="node-title">_get_result_limits()</div><div class="node-sub">MAX_TOOL_RESULT_CHARS ÷ MAX_TOOL_RESULTS</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXECUTION PIPELINE -->
+  <div class="lane">
+    <div class="lane-label"><span>Execution<br>pipeline</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node purple"><div class="node-title">Agent outputs [actions] JSON</div><div class="node-sub">{"tool":"wiki_search","command":"search","args":["query"]}</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">execute_structured_actions()</div><div class="node-sub">iterates action list</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">_execute_single_action()</div><div class="node-sub">resolve tool name → check active → call execute()</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">ActionStateManager.track()</div><div class="node-sub">action_id, tool_name, initiated_at</div></div>
+      </div>
+      <div class="flow-row" style="margin-top:.35rem">
+        <div class="node coral"><div class="node-title">tool.execute(command, args)</div><div class="node-sub">runs tool-specific logic, returns result dict</div></div>
+        <div class="arr">→</div>
+        <div class="node coral"><div class="node-title">result injected → thought_buffer</div><div class="node-sub">ingest_raw_data('tool_result', content)</div></div>
+        <div class="arr">→</div>
+        <div class="node purple"><div class="node-title">ActionConstructor prompt</div><div class="node-sub">mode=action — processes result, sets next_mode</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOOL INSTRUCTIONS -->
+  <div class="lane">
+    <div class="lane-label"><span>Instruction<br>builder</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node blue"><div class="node-title">ToolInstructionBuilder</div><div class="node-sub">tool_instruction_builder.py</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">build_tool_list_section()</div><div class="node-sub">minimal — injected into all cognitive mode prompts</div></div>
+        <div class="arr">+</div>
+        <div class="node blue"><div class="node-title">build_retrieved_tool_instructions()</div><div class="node-sub">full docs — action mode only (commands, args, examples)</div></div>
+      </div>
+      <div class="note warn" style="margin-top:.15rem">COMMAND NAMES ARE EXACT — action mode prompt explicitly warns: only use listed commands, any unlisted command returns "Unknown command"</div>
+    </div>
+  </div>
+
+  <!-- INTERNAL TOOLS -->
+  <div class="lane">
+    <div class="lane-label"><span>Internal<br>tools</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node teal"><div class="node-title">InternalToolManager</div><div class="node-sub">BASE/tools/internal/ — service-per-category</div></div>
+        <div class="arr">→</div>
+        <div class="node teal"><div class="node-title">discover_and_initialize()</div><div class="node-sub">reads information.json, sorts by priority</div></div>
+        <div class="arr">→</div>
+        <div class="diamond amber"><div class="diamond-text">service<br>type?</div></div>
+        <div class="arr"><span class="arr-label">active</span>→</div>
+        <div class="node amber"><div class="node-title">_unload_tool(existing)</div><div class="node-sub">mutual exclusivity enforced</div></div>
+        <div class="arr">→</div>
+        <div class="node teal"><div class="node-title">_load_tool()</div><div class="node-sub">dynamic import → initialize()</div></div>
+      </div>
+      <div class="group-header">Service categories (mutually exclusive)</div>
+      <div class="wrap-row" style="margin-top:.3rem">
+        <div class="node teal"><div class="node-title">tts</div><div class="node-sub">one active TTS backend</div></div>
+        <div class="node teal"><div class="node-title">voice_input</div><div class="node-sub">one active speech recognizer</div></div>
+        <div class="node teal"><div class="node-title">audio_effects</div><div class="node-sub">can coexist with others</div></div>
+      </div>
+      <div class="flow-row" style="margin-top:.35rem">
+        <div class="note">voice_input online → whisper model auto-injected into discord_chat tool via set_whisper_model() if active</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     TAB 3 — HANDLERS
+════════════════════════════════════════════════════════════════ -->
+<div class="section" id="tab-handlers">
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div>Chat pipeline</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f472b6"></div>Content filter</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#2dd4bf"></div>TTS interface</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div>Tool routing</div>
+</div>
+<div class="diagram">
+
+  <!-- CHAT PIPELINE -->
+  <div class="lane">
+    <div class="lane-label"><span>Chat<br>pipeline</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node blue"><div class="node-title">ChatHandler</div><div class="node-sub">platform connector (Twitch / Discord / YouTube)</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">ContentFilter.filter_incoming()</div><div class="node-sub">pattern replace → AI semantic check (cached)</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">ChatEngagement.ingest_chat_message()</div><div class="node-sub">stored in deque(maxlen=20) — NO thought creation</div></div>
+      </div>
+      <div class="flow-row" style="margin-top:.35rem">
+        <div class="node blue"><div class="node-title">ChatEventConverter.convert_unengaged_chat_to_events()</div><div class="node-sub">runs every 2s in cognitive loop — bridge to ThoughtBuffer</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">thought_buffer.ingest_raw_data(source, event_data)</div><div class="node-sub">source: chat_direct_mention | chat_question | chat_message</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">_converted_message_ids set</div><div class="node-sub">dedup — keeps last 100 IDs</div></div>
+      </div>
+      <div class="note" style="margin-top:.2rem">Converted IDs cleanup &gt;100 entries. ChatEventConverter checks should_convert_now() — 2s interval minimum between runs.</div>
+    </div>
+  </div>
+
+  <!-- CHAT ENGAGEMENT LOGIC -->
+  <div class="lane">
+    <div class="lane-label"><span>Engagement<br>decisions</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node blue"><div class="node-title">ChatEngagement.should_engage_with_chat()</div></div>
+        <div class="arr">→</div>
+        <div class="diamond blue"><div class="diamond-text">has_<br>mention?</div></div>
+        <div class="arr"><span class="arr-label">YES</span>→</div>
+        <div class="node green"><div class="node-title">immediate engage</div></div>
+      </div>
+      <div class="flow-row" style="margin-top:.3rem">
+        <div class="note">Also engages on: question in last 30s (urgency 7) | 3+ unengaged messages &gt;60s since last engagement (urgency 6) | 5+ accumulated messages (urgency 6)</div>
+      </div>
+      <div class="flow-row" style="margin-top:.3rem">
+        <div class="node blue"><div class="node-title">get_chat_urgency_for_decision()</div><div class="node-sub">returns (level, reason) — used by ThoughtBuffer.should_speak()</div></div>
+        <div class="arr">→</div>
+        <div class="wrap-row" style="gap:.3rem">
+          <div class="tag blue">mention → 9</div>
+          <div class="tag blue">question → 7</div>
+          <div class="tag blue">3+ msgs → 6</div>
+          <div class="tag dim">nothing → 0</div>
+        </div>
+      </div>
+      <div class="flow-row" style="margin-top:.3rem">
+        <div class="node blue"><div class="node-title">mark_chat_engaged()</div><div class="node-sub">called after agent responds — marks message_ids engaged</div></div>
+        <div class="arr">→</div>
+        <div class="note">batch_mode=True uses O(n) set-intersection instead of nested loop</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT FILTER -->
+  <div class="lane">
+    <div class="lane-label"><span>Content<br>filter</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node pink"><div class="node-title">ContentFilter</div><div class="node-sub">content_filter.py — incoming and outgoing</div></div>
+      </div>
+      <div class="branch-row" style="margin-top:.25rem">
+        <div class="branch">
+          <div class="branch-label">filter_incoming() — 2 stages</div>
+          <div class="node pink"><div class="node-title">Stage 1: regex pattern replace</div><div class="node-sub">profanity → [filtered] (pre-compiled, fast)</div></div>
+          <div class="arr" style="padding:.12rem 0">↓ no match</div>
+          <div class="node pink"><div class="node-title">Stage 2: AI semantic check</div><div class="node-sub">_check_with_ai_cached(fingerprint, text) — LRU 1000</div></div>
+          <div class="arr" style="padding:.12rem 0">↓ detected</div>
+          <div class="node pink"><div class="node-title">entire message → [filtered]</div></div>
+        </div>
+        <div class="branch">
+          <div class="branch-label">filter_outgoing() — lenient</div>
+          <div class="node pink"><div class="node-title">hate_speech + controversial only</div><div class="node-sub">profanity allowed in outgoing</div></div>
+          <div class="arr" style="padding:.12rem 0">↓</div>
+          <div class="node pink"><div class="node-title">substring replace → [filtered]</div></div>
+        </div>
+      </div>
+      <div class="flow-row" style="margin-top:.25rem">
+        <div class="note">LRU caches: fingerprint (sha256 first 16) + AI result — both maxsize=1000. AI call timeout=3s, fail-open. remove_emoji() available separately.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TTS -->
+  <div class="lane">
+    <div class="lane-label"><span>TTS<br>interface</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node teal"><div class="node-title">TTSInterface (abstract)</div><div class="node-sub">tts_interface.py — contract for all TTS backends</div></div>
+        <div class="arr">→</div>
+        <div class="node teal"><div class="node-title">is_available()</div></div>
+        <div class="arr">+</div>
+        <div class="node teal"><div class="node-title">speak(text, stream, stop_event)</div><div class="node-sub">returns: "Speech completed" | "Interrupted" | "Error: …"</div></div>
+        <div class="arr">+</div>
+        <div class="node teal"><div class="node-title">stop()</div><div class="node-sub">interrupt safe</div></div>
+        <div class="arr">+</div>
+        <div class="node teal"><div class="node-title">get_voice_info() → Dict</div><div class="node-sub">name, type, backend-specific keys</div></div>
+      </div>
+      <div class="note" style="margin-top:.2rem">Implementations registered as service_type='tts' in InternalToolManager. Only one TTS backend active at a time.</div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     TAB 4 — MEMORY & RECALL
+════════════════════════════════════════════════════════════════ -->
+<div class="section" id="tab-memory">
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div>Memory tiers</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>Embedding / search</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#4af0c4"></div>Encryption</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Session / file</div>
+</div>
+<div class="diagram">
+
+  <!-- 4-TIER OVERVIEW -->
+  <div class="lane">
+    <div class="lane-label"><span>4-tier<br>overview</span></div>
+    <div class="lane-content">
+      <div class="wrap-row">
+        <div class="node blue"><div class="node-title">Tier 1 — Short Memory</div><div class="node-sub">last 25 messages · not embedded · always in context</div></div>
+        <div class="node blue"><div class="node-title">Tier 2 — Medium Memory</div><div class="node-sub">today's older messages · embedded · searchable</div></div>
+        <div class="node blue"><div class="node-title">Tier 3 — Long Memory</div><div class="node-sub">daily diary summaries · embedded · searchable</div></div>
+        <div class="node blue"><div class="node-title">Tier 4 — Base Knowledge</div><div class="node-sub">read-only docs · personality embeddings · game guides</div></div>
+      </div>
+      <div class="note info" style="margin-top:.2rem">Tiers 1–3 stored as AES-256-GCM encrypted JSON. Tier 4 is read-only flat files + pre-built embedding JSONs (nomic-embed-text).</div>
+    </div>
+  </div>
+
+  <!-- ENCRYPTION -->
+  <div class="lane">
+    <div class="lane-label"><span>Encryption<br>layer</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node accent"><div class="node-title">memory_encryption.py</div><div class="node-sub">AES-256-GCM + Scrypt KDF</div></div>
+        <div class="arr">→</div>
+        <div class="node accent"><div class="node-title">File format</div><div class="node-sub">AMEM + v01 + 16B salt + 12B nonce + ciphertext + 16B GCM tag</div></div>
+      </div>
+      <div class="branch-row" style="margin-top:.25rem">
+        <div class="branch">
+          <div class="branch-label">USE_MEMORY_ENCRYPTION=True</div>
+          <div class="node accent"><div class="node-title">setup_or_unlock()</div><div class="node-sub">prompts for password → Scrypt(N=131072,r=8,p=1) → 32B key</div></div>
+        </div>
+        <div class="branch">
+          <div class="branch-label">USE_MEMORY_ENCRYPTION=False</div>
+          <div class="node accent"><div class="node-title">machine-local secret</div><div class="node-sub">.machine_secret auto-generated (32B hex) — no password prompt</div></div>
+        </div>
+      </div>
+      <div class="flow-row" style="margin-top:.25rem">
+        <div class="node accent"><div class="node-title">save_encrypted()</div><div class="node-sub">atomic: write temp → os.replace() + .bak backup</div></div>
+        <div class="arr">+</div>
+        <div class="node accent"><div class="node-title">load_encrypted_with_fallback()</div><div class="node-sub">tries primary → .bak → empty list</div></div>
+        <div class="arr">+</div>
+        <div class="node accent"><div class="node-title">recover_pending_writes()</div><div class="node-sub">startup — recovers interrupted flushes</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MEMORY MANAGER -->
+  <div class="lane">
+    <div class="lane-label"><span>Memory<br>manager</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node blue"><div class="node-title">MemoryManager.__init__()</div><div class="node-sub">_init_encryption() → _init_embeddings() → _load_all_memory()</div></div>
+      </div>
+      <div class="group-header">Save operations</div>
+      <div class="wrap-row" style="margin-top:.25rem">
+        <div class="node blue"><div class="node-title">save_user_message(text)</div><div class="node-sub">→ short_memory + embed → medium_memory</div></div>
+        <div class="node blue"><div class="node-title">save_bot_response(text)</div><div class="node-sub">→ short_memory + embed → medium_memory</div></div>
+        <div class="node blue"><div class="node-title">archive_previous_day(summary, date)</div><div class="node-sub">→ long_memory embed + persist</div></div>
+      </div>
+      <div class="group-header">Date rollover</div>
+      <div class="flow-row" style="margin-top:.25rem">
+        <div class="node amber"><div class="node-title">summarizer.summarize_previous_day()</div><div class="node-sub">called on GUI startup only — never on every save</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">_call_llm()</div><div class="node-sub">thought_model or text_model — diary-style prompt</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">archive_previous_day(summary)</div><div class="node-sub">moves previous date → long_memory</div></div>
+      </div>
+      <div class="note" style="margin-top:.2rem">short_memory_limit from config.memory_length. Medium entries embedded individually with nomic-embed-text. Long memory summary ≤2000 chars.</div>
+    </div>
+  </div>
+
+  <!-- MEMORY SEARCH -->
+  <div class="lane">
+    <div class="lane-label"><span>Memory<br>search</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node purple"><div class="node-title">MemorySearch</div><div class="node-sub">memory_search.py — universal __getattr__ delegation</div></div>
+        <div class="arr">→</div>
+        <div class="node purple"><div class="node-title">_load_embeddings()</div><div class="node-sub">personality/base_memory/base_files/embeddings/*.json</div></div>
+        <div class="arr">+</div>
+        <div class="node purple"><div class="node-title">thought_examples_dir</div><div class="node-sub">+ response_examples_dir</div></div>
+      </div>
+      <div class="group-header">Search methods</div>
+      <div class="wrap-row" style="margin-top:.25rem">
+        <div class="node purple"><div class="node-title">get_short_memory()</div><div class="node-sub">tier 1 — always in context</div></div>
+        <div class="node purple"><div class="node-title">get_yesterday_context()</div><div class="node-sub">previous day entries</div></div>
+        <div class="node purple"><div class="node-title">search_medium_memory(query, k)</div><div class="node-sub">cosine similarity on today's embeds</div></div>
+        <div class="node purple"><div class="node-title">search_long_memory(query, k)</div><div class="node-sub">cosine on daily summaries — sim &gt;0.6 injects memory</div></div>
+        <div class="node purple"><div class="node-title">search_base_knowledge(query, k, min_sim)</div><div class="node-sub">personality + document chunks — min_similarity=0.4</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MEMORY INTEGRATION -->
+  <div class="lane">
+    <div class="lane-label"><span>Memory<br>integration</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node purple"><div class="node-title">MemoryAwarePromptBuilder.detect_memory_needs()</div><div class="node-sub">memory_integration.py — keyword trigger scan</div></div>
+        <div class="arr">→</div>
+        <div class="node purple"><div class="node-title">MemoryRelevanceScore</div><div class="node-sub">needs_short/medium/long/base/yesterday flags</div></div>
+      </div>
+      <div class="flow-row" style="margin-top:.25rem">
+        <div class="note">Urgency ≥9 → short only. Urgency 7–8 → short+medium. Full search only on recall/history/reference keywords. build_memory_context() assembles the relevant tier data.</div>
+      </div>
+      <div class="group-header">Memory triggers</div>
+      <div class="wrap-row" style="margin-top:.25rem">
+        <div class="tag purple">recall</div><div class="tag purple">remember</div><div class="tag purple">you said</div>
+        <div class="tag blue">yesterday / last night</div>
+        <div class="tag amber">how to / what is / explain</div>
+        <div class="tag dim">history / past / previous</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOCUMENT EMBEDDING -->
+  <div class="lane">
+    <div class="lane-label"><span>Embedding<br>pipeline</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node amber"><div class="node-title">DocumentEmbedder</div><div class="node-sub">embed_document.py — offline batch script</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">chunk_text(size=1000, overlap=200)</div><div class="node-sub">para break → line break → sentence → word</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">get_embedding(chunk)</div><div class="node-sub">nomic-embed-text via Ollama /api/embeddings</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">save to *_embeddings.json</div><div class="node-sub">skips if file exists — incremental</div></div>
+      </div>
+      <div class="flow-row" style="margin-top:.3rem">
+        <div class="node amber"><div class="node-title">PersonalityEmbedder</div><div class="node-sub">embed_personality.py — thought vs response stage separation</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">load_training_module(filepath)</div><div class="node-sub">dynamic import — response_examples / training_examples / examples</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">processing_stage tag</div><div class="node-sub">'thought' or 'response' — controls output dir</div></div>
+      </div>
+      <div class="note" style="margin-top:.2rem">Modes: base (base_files/) | game_guides (game_guides/) | --all for both. Game metadata (game_name, sections) attached per chunk.</div>
+    </div>
+  </div>
+
+  <!-- SESSION FILES -->
+  <div class="lane">
+    <div class="lane-label"><span>Session<br>files</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node amber"><div class="node-title">SessionFileManager</div><div class="node-sub">session_file_manager.py — in-memory only, no persistence</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">add_file(filepath, content, type)</div><div class="node-sub">validates size (max 1MB) → auto-detect type → _process_file()</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">get_context_for_query(last_user_msg)</div><div class="node-sub">keyword match → returns relevant sections</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">injected into context_parts</div><div class="node-sub">ThinkingModes.build_thought_context() per cycle</div></div>
+      </div>
+      <div class="note" style="margin-top:.2rem">Type detection: extension → content heuristics. Types: code, markdown, pdf, text, data. _chunk_size = MAX_TOOL_RESULT_CHARS ÷ MAX_TOOL_RESULTS.</div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     TAB 5 — FULL DATA FLOW
+════════════════════════════════════════════════════════════════ -->
+<div class="section" id="tab-data-flow">
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#4af0c4"></div>Input path</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>Cognitive processing</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div>Tool path</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Output path</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div>Memory path</div>
+</div>
+<div class="diagram">
+
+  <!-- INPUTS -->
+  <div class="lane">
+    <div class="lane-label"><span>Inputs</span></div>
+    <div class="lane-content">
+      <div class="wrap-row">
+        <div class="node accent"><div class="node-title">User voice / text</div><div class="node-sub">ingest_user_directive()</div></div>
+        <div class="node accent"><div class="node-title">Discord DM</div><div class="node-sub">thought_buffer.add_raw_event()</div></div>
+        <div class="node accent"><div class="node-title">Twitch / YouTube chat</div><div class="node-sub">ChatHandler → ChatEngagement</div></div>
+        <div class="node accent"><div class="node-title">Tool results</div><div class="node-sub">ingest_raw_data('tool_result')</div></div>
+        <div class="node accent"><div class="node-title">System notifications</div><div class="node-sub">logger callback → ingest_system_message()</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILTER LAYER -->
+  <div class="lane">
+    <div class="lane-label"><span>Filter<br>layer</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node pink"><div class="node-title">ContentFilter.filter_incoming()</div><div class="node-sub">all external text — profanity replace + AI semantic</div></div>
+        <div class="arr">→</div>
+        <div class="node pink"><div class="node-title">cleaned text</div><div class="node-sub">or [filtered] substitution</div></div>
+        <div class="arr">→</div>
+        <div class="node accent"><div class="node-title">ThoughtBuffer</div><div class="node-sub">ingest_raw_data() / add_raw_event()</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COGNITIVE CYCLE -->
+  <div class="lane">
+    <div class="lane-label"><span>Cognitive<br>cycle</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node purple"><div class="node-title">ThoughtProcessor.process_thoughts()</div></div>
+        <div class="arr">→</div>
+        <div class="node purple"><div class="node-title">ReactiveConstructor / Proactive / Reflective</div><div class="node-sub">LLM call → thoughts + &lt;next_mode&gt; + &lt;speak&gt; + [actions]</div></div>
+        <div class="arr">→</div>
+        <div class="node purple"><div class="node-title">add_processed_thought()</div><div class="node-sub">stored in ThoughtBuffer</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MEMORY RETRIEVAL -->
+  <div class="lane">
+    <div class="lane-label"><span>Memory<br>retrieval</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node blue"><div class="node-title">MemoryAwarePromptBuilder.detect_memory_needs()</div><div class="node-sub">keyword scan on recent thoughts</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">build_memory_context()</div><div class="node-sub">tier 1 always + conditional 2/3/4 on keyword match</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">context injected into responsive prompt</div></div>
+      </div>
+      <div class="flow-row" style="margin-top:.25rem">
+        <div class="node blue"><div class="node-title">periodic_memory_integration()</div><div class="node-sub">search_long_memory(ongoing_ctx, k=1) — sim &gt;0.6 → inject</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">add_processed_thought('memory_integration')</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOOL PATH -->
+  <div class="lane">
+    <div class="lane-label"><span>Tool<br>path</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node coral"><div class="node-title">[actions] parsed</div><div class="node-sub">tool_name + command + args</div></div>
+        <div class="arr">→</div>
+        <div class="node coral"><div class="node-title">ToolManager.execute_structured_actions()</div></div>
+        <div class="arr">→</div>
+        <div class="node coral"><div class="node-title">BaseTool.execute()</div><div class="node-sub">returns {success, content, guidance, metadata}</div></div>
+        <div class="arr">→</div>
+        <div class="node coral"><div class="node-title">result → ThoughtBuffer</div><div class="node-sub">ingest_raw_data('tool_result', …)</div></div>
+        <div class="arr">→</div>
+        <div class="node purple"><div class="node-title">ActionConstructor</div><div class="node-sub">processes result → next cognitive step</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPEAK GATE -->
+  <div class="lane">
+    <div class="lane-label"><span>Speak gate</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node amber"><div class="node-title">&lt;speak&gt;YES&lt;/speak&gt; → trigger</div></div>
+        <div class="arr">→</div>
+        <div class="node amber"><div class="node-title">rate limit check</div><div class="node-sub">LIMIT_SPEAKING + min_response_interval</div></div>
+        <div class="arr">→</div>
+        <div class="node purple"><div class="node-title">SpeakJudge.should_speak()</div><div class="node-sub">secondary LLM — YES/NO verdict</div></div>
+        <div class="arr">→</div>
+        <div class="node purple"><div class="node-title">CognitiveFilter.check_response()</div><div class="node-sub">context / language / duplicate</div></div>
+        <div class="arr">→</div>
+        <div class="node green"><div class="node-title">approved response</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OUTPUT FANOUT -->
+  <div class="lane">
+    <div class="lane-label"><span>Output<br>fanout</span></div>
+    <div class="lane-content">
+      <div class="wrap-row">
+        <div class="node green"><div class="node-title">TTS — speak(text)</div><div class="node-sub">active TTSInterface backend</div></div>
+        <div class="node green"><div class="node-title">GUI callback</div><div class="node-sub">autonomous_response_callback()</div></div>
+        <div class="node green"><div class="node-title">MemoryManager.save_bot_response()</div><div class="node-sub">short_memory + embed → medium</div></div>
+        <div class="node green"><div class="node-title">add_response_echo()</div><div class="node-sub">[SELF] tag written to ThoughtBuffer</div></div>
+        <div class="node coral"><div class="node-title">Discord DM</div><div class="node-sub">discord_tool._send_dm()</div></div>
+        <div class="node coral"><div class="node-title">Group Chat broadcast</div><div class="node-sub">group_chat_tool.broadcast_spoken_response()</div></div>
+        <div class="node pink"><div class="node-title">ContentFilter.filter_outgoing()</div><div class="node-sub">hate + controversial only</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MEMORY SAVE -->
+  <div class="lane">
+    <div class="lane-label"><span>Memory<br>save</span></div>
+    <div class="lane-content">
+      <div class="flow-row">
+        <div class="node blue"><div class="node-title">save_encrypted(path, data, key)</div><div class="node-sub">AES-256-GCM → temp file → os.replace() → .bak</div></div>
+        <div class="arr">→</div>
+        <div class="node blue"><div class="node-title">short_memory.json</div><div class="node-sub">tier 1 — plaintext-equivalent (machine-keyed)</div></div>
+        <div class="arr">+</div>
+        <div class="node blue"><div class="node-title">medium_memory.json</div><div class="node-sub">tier 2 — embedded entries</div></div>
+        <div class="arr">+</div>
+        <div class="node blue"><div class="node-title">long_memory.json</div><div class="node-sub">tier 3 — daily summaries</div></div>
+      </div>
+      <div class="flow-row" style="margin-top:.25rem">
+        <div class="loop-marker"><div class="dot"></div>&#x21BA; loop — next input arrives → ThoughtBuffer → cognitive cycle repeats</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<footer>
+  <span>Anna AI — v2 Full Architecture</span>
+  <span>BASE/core: cognitive_loop_manager · thought_processor · cognitive_filter · speak_judge · cognitive_loop_recovery · response_decider · thinking_modes · thought_buffer · processing_delegator</span>
+  <span>BASE/handlers: tool_manager · tool_lifecycle · tool_instruction_builder · base_tool · internal_tool_manager · internal_tool_interface · tts_interface · chat_engagement · chat_event_converter · content_filter</span>
+  <span>BASE/recall: memory_manager · memory_search · memory_encryption · memory_integration · session_file_manager · summarizer · embed_document · embed_personality</span>
+</footer>
+
+<script>
+function showTab(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

@@ -66,10 +66,10 @@ class GUIMessageHandler:
         # Save user message to memory
         user_entry = self.ai_core.memory_manager.save_user_message(message)
         
-        if user_entry:
-            self.logger.system(f"User message saved: {message}...")
-        else:
-            self.logger.warning("Memory saving disabled")
+        # if user_entry:
+        #     self.logger.system(f"User message saved: {message}...")
+        # else:
+        #     self.logger.warning("Memory saving disabled")
         
         # Process message asynchronously
         self._process_message_async(message)

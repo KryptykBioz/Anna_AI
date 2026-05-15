@@ -81,7 +81,7 @@ class CognitiveFilter:
         # Fast local duplicate check — skip Ollama for obvious exact matches
         if not is_trivial and not prev_trivial and self._last_response:
             if self._normalize(response) == self._normalize(self._last_response):
-                self.logger.system("[CognitiveFilter] BLOCKED: exact duplicate")
+                self.logger.filter("[CognitiveFilter] BLOCKED: exact duplicate")
                 return False, "duplicate"
 
         thought_summary = self._summarize_context(thought_chain, context_parts)
@@ -90,13 +90,13 @@ class CognitiveFilter:
 
         if not raw:
             # Fail-open: infrastructure issue should not silence the agent
-            self.logger.warning("[CognitiveFilter] Ollama unavailable — approving response")
+            self.logger.filter("[CognitiveFilter] Ollama unavailable — approving response")
             return True, "filter_unavailable"
 
         approved, reason = self._parse_result(raw)
 
         if not approved:
-            self.logger.system(f"[CognitiveFilter] BLOCKED: {reason}")
+            self.logger.filter(f"[CognitiveFilter] BLOCKED: {reason}")
 
         return approved, reason
 
@@ -168,10 +168,10 @@ class CognitiveFilter:
             resp.raise_for_status()
             return resp.json().get("response", "").strip()
         except requests.Timeout:
-            self.logger.warning("[CognitiveFilter] Ollama request timed out")
+            self.logger.filter("[CognitiveFilter] Ollama request timed out")
             return ""
         except Exception as e:
-            self.logger.warning(f"[CognitiveFilter] Ollama error: {e}")
+            self.logger.filter(f"[CognitiveFilter] Ollama error: {e}")
             return ""
 
     def _parse_result(self, result: str) -> Tuple[bool, str]:

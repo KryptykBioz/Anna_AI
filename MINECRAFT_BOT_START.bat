@@ -1,1 +1,0 @@
-node ./BASE/tools/installed/minecraft/minecraft_bot/server.js

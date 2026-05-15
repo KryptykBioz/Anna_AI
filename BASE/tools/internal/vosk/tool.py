@@ -172,7 +172,7 @@ class VoskTool(InternalToolInterface):
     
     def _speech_processing_loop(self):
         """Process recognized text from queue"""
-        from personality.bot_info import agentname, username
+        from BASE.config.bot_info import agentname, username
         
         while self._voice_enabled:
             try:

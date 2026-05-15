@@ -20,8 +20,8 @@ try:
     from BASE.core.ai_core import AICore
     from BASE.core.config import Config
     from BASE.core.logger import Logger, MessageType
-    from personality.bot_info import agentname
-    import personality.controls as controls
+    from BASE.config.bot_info import agentname
+    import BASE.config.controls as controls
 
     from BASE.interface.voice_manager import VoiceManager
     from BASE.interface.gui_components import ControlPanelManager
@@ -46,14 +46,14 @@ class OllamaGUI:
         """
         self.root = root
         
-        from personality.bot_info import agentname
+        from BASE.config.bot_info import agentname
         self.agentname = agentname
         
-        import personality.controls as controls
+        import BASE.config.controls as controls
         self.controls = controls
         
         self.root.title(f"{agentname} - Ollama Agent GUI")
-        self.root.geometry("1600x1000")
+        self.root.geometry("1800x1500")
         
         self.twitch_chat = None
         self.youtube_chat = None
@@ -83,6 +83,7 @@ class OllamaGUI:
             raise RuntimeError(f"CRITICAL: Logger has DIFFERENT config instance!")
         
         print(f"[Init] Logger has correct config: {id(self.logger.config)}")
+        print(f"[Init] Please wait while the models load - this may take a moment...")
 
         # Create AI Core with same Config
         from BASE.core.ai_core import AICore
@@ -424,7 +425,7 @@ class OllamaGUI:
             self.logger.system(f"[Autonomous] Queued for display: {response[:60]}...")
             
             # Handle TTS if enabled
-            import personality.controls as controls
+            import BASE.config.controls as controls
             if controls.AVATAR_SPEECH and len(response) < 1000:
                 self.message_processor._play_tts(response)
                 self.logger.speech(f"[Autonomous] Speaking: {response[:60]}...")
@@ -521,8 +522,8 @@ class OllamaGUI:
                     traceback.print_exc()
             
             # Log queue processing if messages were processed
-            if messages_processed > 0:
-                self.logger.system(f"[Queue] Processed {messages_processed} message(s)")
+            # if messages_processed > 0:
+            #     self.logger.system(f"[Queue] Processed {messages_processed} message(s)")
 
             # Input queue processing (unchanged)
             if not self.processing and not self.input_queue.empty():

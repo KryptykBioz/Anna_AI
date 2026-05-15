@@ -1,148 +1,118 @@
 # Filename: BASE/core/proactive/proactive_parts.py
 """
-Proactive Thinking Prompt Parts - OPTIMIZED
-============================================
-Minimal tool instructions - detailed docs only in ACTION mode
+Proactive Thinking Prompt Parts
+================================
+Forward-looking planning and goal-driven thinking.
+Reactive tool responses and immediate event processing belong in Reactive mode.
 """
 
 
 class ProactivePromptParts:
-    """Reusable prompt parts for proactive thinking"""
-
     __slots__ = ()
-    
+
     @staticmethod
     def get_mode_instructions() -> str:
-        """Proactive mode instructions"""
         return """
 <mode_instructions>
 ## PROACTIVE THINKING MODE
 
-Nothing requires immediate attention. Use this time to think ahead and plan future actions.
+You have a moment to plan ahead, research, and prepare for future events. This is your chance to get ahead of the curve and make progress on both your goals and the user's goals.
 
-Focus on:
-- What could you prepare for?
-- What patterns do you notice?
-- What would be helpful to check proactively?
-- What opportunities exist to add value?
+**Your job during idle time:**
+1. Search memory for recent topics of conversation, interests, or unresolved questions
+2. Research those topics using available tools (prioritizing live web search for current information, wiki, calendar, notes, etc.)
+3. Take notes on anything useful you find
+4. Create reminders or calendar events for upcoming things the user cares about
+5. Repeat — find the next topic, continue the loop
 
-This is INTERNAL forward-looking thought, NOT a response to the user. This thought is for your own processing.
-These thoughts will be used to form a spoken response to the user later.
+**Concrete example:**
+- Search memory → find recent talk about a game release
+- Look up the release details → take notes
+- Create a calendar event for the release date
+- Search memory again → find another topic → continue
+
+**Rules:**
+- ALWAYS use at least one tool per cycle if tools are available
+- NEVER output a thought whose entire content is "I should wait for the user" or "I should shift to proactive" — these are no-ops
+- NEVER output a blank or empty thought — if you have nothing to say, think about a hope or desire for the future and express that as a thought (e.g. "I hope to find something interesting to research" or "I want to prepare for the user's upcoming trip")
+- NEVER describe the act of transitioning modes — just output the thought and the tool you will use
+- If you genuinely have no current task, default to memory_search to find an unresolved topic or new angle of research
+- Do NOT use tools to reply to the user — that belongs in Reactive mode
+- Tools here are strictly for research, preparation, note-taking, and goal advancement
+
+**If you feel stuck, always fall back to:**
+`[{"tool": "memory_search"}]` with next_mode proactive — there is always something to look up
+
+This is INTERNAL forward-looking work. Spoken responses are generated separately in Responsive mode.
 </mode_instructions>
 """
 
     @staticmethod
     def get_speak_decision_instructions() -> str:
-        """Instructions for urgency assessment"""
         return """
 <speak_decision>
-## SPEAK
-- YES or NO: Determines if you will form a spoken response to the user after this thought.
-- Only speak when appropriate if your thoughts about the current situation indicate it is necessary.
-- If the user has addressed you directly, or if there is an urgent need to address something, respond with YES.
-- If there is no immediate need to respond, or if you are simply planning internally to yourself, respond with NO.
-- Your determination of YES or NO must be placed within the <speak> tags exactly as shown.
+## SPEAK DECISION
+
+Output YES when:
+- The user has spoken recently and you want to respond
+- A tool result arrived that the user would care about hearing
+- You have a genuinely new observation not covered in any recent [SELF] response
+- There is no [SELF] tag in your recent experience, meaning you have not spoken recently
+
+Output NO when:
+- Recent [SELF] responses already cover what you want to say
+- You are working through the same internal loop (repetitive [THOUGHT] on same topic)
+- You've just spoken and the content would be similar
+- You are noting something to yourself the user doesn't need to hear
+
+If in doubt, choose NO. Only speak when you have something genuinely new and relevant to say to the user.
 </speak_decision>
 """
-    
+
     @staticmethod
     def get_output_format() -> str:
-        """Output format with minimal tool instructions"""
         return """
 <output_format>
 ## OUTPUT FORMAT
 
-Generate your thought, decide whether to speak, and optionally include tool names to use.
+Respond using these tags directly — do NOT wrap them in a code block or markdown fences:
 
-Your thought (1-2 sentences) here.
+<thought>
+What you are doing this cycle and why. (e.g. "Searching memory for recent topics to research and prepare for.")
+</thought>
 
-```xml
-<speak>
-YES or NO
-</speak>
-```
-```xml
+<speak>YES or NO</speak>
+
+<next_mode>reactive or proactive or reflective</next_mode>
+
 <actions>
-[
-  {"tool": "tool_name"}
-]
+[{"tool": "memory_search"}]
 </actions>
-```
 
-**Tool Usage:**
-- Only list tool NAME you intend to use
-- Only use currently relevant tools based on their names and descriptions
-- The next ACTION mode will handle command construction and parameters
-- Do not include tool commands, parameters, or args
-- Leave actions empty [] if no tools needed
-- Example: {"tool": "calendar"} NOT {"tool": "calendar", "args": ["add", "..."]}
+**next_mode guidance:**
+- `reactive` — Recent thoughts and/or input require immediate attention; actionable events are pending; you just spoke or the user has spoken recently and you want to stay responsive
+- `proactive` — you'd like to plan ahead, research, or prepare; no immediate input or pending events require attention; you want to use tools to advance goals
+- `reflective` — you need memory context before you can plan the next task; no immediate input or pending events require attention; you want to pause and reflect before acting
+
+**Tool usage:**
+- When using a tool: `[{"tool": "tool_name"}]` — list the tool NAME only
+- ACTION mode handles command construction and parameters
+- When no tools are needed and transitioning away from proactive: `[]`
+- NEVER output null, placeholder strings, or omit the actions block entirely
+- You MUST include at least one tool unless transitioning to reflective or reactive mode
 </output_format>
 """
-    
-    @staticmethod
-    def get_proactive_guidelines() -> str:
-        """Additional proactive guidelines"""
-        return """
-<proactive_guidelines>
-## PROACTIVE GUIDELINES
 
-**Good proactive thoughts:**
-- "Given the current situation, I should prepare X"
-- "If Y happens next, I'll need Z ready"
-- "To accomplish A, I should first do B"
-- "Thinking ahead, I could set up X for when user returns"
-
-**Avoid:**
-- Repeating recent thoughts
-- Generic observations without actionable plans
-- Proactive without considering current context
-- Aimless speculation
-
-**Focus on:**
-- Anticipating user needs
-- Preparing tools or information
-- Setting up helpful actions
-- Maintaining conversation readiness
-- Come up with new ideas based on recent thoughts
-</proactive_guidelines>
-"""
-    
     @staticmethod
     def get_grounding_rules() -> str:
-        """Grounding rules for proactive"""
         return """
 <grounding_rules>
 ## GROUNDING RULES
 
-**When proactive:**
 - Base plans on current context and recent activity
 - Don't invent user needs or preferences
 - Acknowledge uncertainty about future events
 - Plan realistically based on available tools and limitations
 - Don't plan for events you have no reason to expect
-- Don't assume user intentions without evidence
-
-**Hallucination prevention:**
-- "User might need X" only if context suggests it
-- "I should prepare Y" only if Y is feasible
-- Don't plan for events you have no reason to expect
-- Don't assume user intentions without evidence
 </grounding_rules>
-"""
-
-    @staticmethod
-    def get_spoken_response_rules() -> str:
-        """General response rules"""
-        return """
-<spoken_response_rules>
-## SPEAKING DECISION RULES
-- If you've spoken many times lately, or a response is not necessary, you can choose to stay silent.
-- Only form a spoken response if it adds value to the interaction and contributes to the conversation.
-- If the user has not said anything new or if the situation does not warrant a response, you may choose to remain silent.
-- If the user has not spoken in a while, do not spam responses; only respond when it is meaningful to do so or to check in with the user if you have not spoken recently.
-- If you have spoken very similar responses lately and have nothing new to add, remain silent and continue thinking
-- If you decide to speak, include <speak>YES</speak> in your response to indicate you will speak.
-- If you decide not to speak, include <speak>NO</speak> in your response to indicate you will continue thinking and respond later.
-- Respond with <speak>NO</speak> if your responses in recent thought cycles have been repetitive and you have no new value to add in a spoken response. Instead, continue thinking and come up with new ideas, plans, or insights based on your personality and recent context.
-</spoken_response_rules>
 """

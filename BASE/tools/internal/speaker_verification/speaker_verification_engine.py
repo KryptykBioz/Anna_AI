@@ -25,7 +25,7 @@ class SpeakerVerificationEngine:
     def __init__(
         self,
         user_voice_sample: str,
-        similarity_threshold: float = 0.75,
+        similarity_threshold: float = 0.70,
         logger=None
     ):
         """

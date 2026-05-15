@@ -15,7 +15,7 @@ DURATION = 8
 def quick_record():
     """Quick recording with minimal interaction"""
     try:
-        from personality.bot_info import username
+        from BASE.config.bot_info import username
         print(f"[INFO] Username: {username}")
     except ImportError:
         username = input("Enter username: ").strip()

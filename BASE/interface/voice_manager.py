@@ -29,7 +29,7 @@ except ImportError:
     # Internal tools handle voice input - no error needed
 
 try:
-    from personality.bot_info import agentname, username
+    from BASE.config.bot_info import agentname, username
 except ImportError:
     agentname = "Anna"
     username = "User"
@@ -125,7 +125,7 @@ class VoiceManager:
 
     def _create_volume_controls(self, parent_frame):
         """Create volume slider controls"""
-        import personality.controls as controls
+        import BASE.config.controls as controls
         
         volume_container = ttk.Frame(parent_frame)
         volume_container.pack(fill=tk.X, padx=5, pady=(10, 5))
@@ -251,7 +251,7 @@ class VoiceManager:
     
     def _on_voice_volume_change(self, value):
         """Handle TTS voice volume slider change"""
-        import personality.controls as controls
+        import BASE.config.controls as controls
         volume = int(value) / 100.0
         controls.VOICE_VOLUME = volume
         if self.voice_volume_label:
@@ -259,7 +259,7 @@ class VoiceManager:
     
     def _on_sound_volume_change(self, value):
         """Handle sound effects volume slider change"""
-        import personality.controls as controls
+        import BASE.config.controls as controls
         volume = int(value) / 100.0
         controls.SOUND_EFFECT_VOLUME = volume
         if self.sound_volume_label:
@@ -269,7 +269,7 @@ class VoiceManager:
         """Toggle voice input on/off - WITH VOICE HUB SUPPORT"""
         if not self.voice_enabled:
             # Check if GROUP_CHAT enabled
-            import personality.controls as controls
+            import BASE.config.controls as controls
             use_hub = getattr(controls, 'GROUP_CHAT', False)
             
             if use_hub:
@@ -299,7 +299,7 @@ class VoiceManager:
                 
                 if self.using_hub:
                     # Register with hub
-                    from personality.bot_info import agentname, vb_cable_name
+                    from BASE.config.bot_info import agentname, vb_cable_name
                     success = self.hub_client.register_agent(
                         agent_name=agentname,
                         cable_name=vb_cable_name,
@@ -490,7 +490,7 @@ class VoiceManager:
 
     def _hub_user_speech_loop(self):
         """Process user speech from Voice Hub"""
-        from personality.bot_info import agentname, username
+        from BASE.config.bot_info import agentname, username
         
         while self.voice_enabled and self.hub_client:
             text = self.hub_client.poll_user_speech(timeout=0.1)
@@ -504,7 +504,7 @@ class VoiceManager:
 
     def _hub_agent_speech_loop(self):
         """Monitor other agents' speech and inject to thought buffer"""
-        from personality.bot_info import agentname
+        from BASE.config.bot_info import agentname
         
         while self.voice_enabled and self.hub_client:
             speech = self.hub_client.poll_agent_speech(timeout=0.1)
@@ -527,21 +527,18 @@ class VoiceManager:
                         )
 
     def _get_voice_config(self) -> dict:
-        """Get current agent's voice configuration for Voice Hub registration"""
-        import personality.controls as controls
-        
+        import BASE.config.controls as controls
+        from BASE.config.bot_info import agentname, voice_sample_filename, voiceIndex
+
         if controls.USE_CUSTOM_VOICE:
-            from personality.bot_info import agentname
-            voice_sample = f"./personality/voice/{agentname}_voice_sample.mp3"
-            
+            filename = voice_sample_filename if voice_sample_filename else f"{agentname}_voice_sample.mp3"
             return {
                 'type': 'xtts',
-                'voice_sample': voice_sample,
+                'voice_sample': f"./personality/voice/{filename}",
                 'language': 'en',
                 'speed': 1.0
             }
         else:
-            from personality.bot_info import voiceIndex
             return {
                 'type': 'pyttsx3',
                 'voice_index': voiceIndex,

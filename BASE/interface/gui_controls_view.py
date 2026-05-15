@@ -274,7 +274,7 @@ class ControlsView:
             
             if context:
                 self.parent.config.current_context = context
-                self.parent.logger.system(f"[Current Context] Updated: {context[:50]}...")
+                self.parent.logger.system(f"[Current Context] Updated: {context[:100]}...")
                 self.parent.context_status_label.config(
                     text="[Confirmed] Saved",
                     fg=DarkTheme.ACCENT_GREEN

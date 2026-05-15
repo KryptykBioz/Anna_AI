@@ -381,10 +381,10 @@ class ConfigView:
         self.add_input_field(frame,"Save Memory","SAVE_MEMORY",
                             ctrl.get('SAVE_MEMORY','True'),field_type="checkbox")
         self.add_input_field(frame,"Memory Length","MEMORY_LENGTH",
-                            ctrl.get('MEMORY_LENGTH','25'),field_type="spinbox",
+                            ctrl.get('MEMORY_LENGTH','50'),field_type="spinbox",
                             tooltip="Recent interactions to keep")
         self.add_input_field(frame,"Max Context Entries","memory_max_context_entries",
-                            memory.get('max_context_entries',25),field_type="spinbox")
+                            memory.get('max_context_entries',50),field_type="spinbox")
         self.add_input_field(frame,"Long-term Results","MAX_LONG_TERM_MEMORIES",
                             ctrl.get('MAX_LONG_TERM_MEMORIES','1'),field_type="spinbox")
         self.add_input_field(frame,"Base Memory Results","MAX_BASE_MEMORIES",
@@ -420,6 +420,12 @@ class ConfigView:
                             ctrl.get('MAX_TOKENS','2000'),field_type="spinbox")
         self.add_input_field(frame,"Temperature","TEMPERATURE",
                             ctrl.get('TEMPERATURE','0.7'),field_type="entry",width=10)
+        self.add_input_field(frame,"Max Tool Result Chars","MAX_TOOL_RESULT_CHARS",
+                            ctrl.get('MAX_TOOL_RESULT_CHARS','1000'),field_type="spinbox",
+                            tooltip="Max characters returned per tool result")
+        self.add_input_field(frame,"Max Tool Results","MAX_TOOL_RESULTS",
+                            ctrl.get('MAX_TOOL_RESULTS','3'),field_type="spinbox",
+                            tooltip="Max number of tool results included in context")
         self.add_input_field(frame,"OpenCV FPS","opencv_vision_fps",
                             ctrl.get('opencv_vision_fps','15'),field_type="spinbox",
                             tooltip="Vision capture frame rate")
@@ -739,7 +745,7 @@ class ConfigView:
             self.parent.logger.system("[Config View] Applying hot-reload changes...")
             
             import personality.bot_info as bot_info
-            import personality.controls as controls
+            import BASE.config.controls as controls
             
             # Bot info and model configuration
             for key,field in self.input_fields.items():
@@ -754,8 +760,10 @@ class ConfigView:
                 # Regular control variables
                 elif key.startswith('USE_')or key.startswith('ENABLE_')or \
                 key in('SAVE_MEMORY','MEMORY_LENGTH','MAX_LONG_TERM_MEMORIES','MAX_BASE_MEMORIES',
-                        'MAX_TOKENS','TEMPERATURE','VOICE_VOLUME','SOUND_EFFECT_VOLUME',
-                        'AVATAR_SPEECH','opencv_vision_fps','opencv_vision_interval',
+                        'MAX_TOKENS','MAX_TOOL_RESULT_CHARS','MAX_TOOL_RESULTS',
+                        'TEMPERATURE','VOICE_VOLUME','SOUND_EFFECT_VOLUME',
+                        'AVATAR_SPEECH','STREAM_RESPONSES',
+                        'opencv_vision_fps','opencv_vision_interval',
                         'opencv_vision_width','opencv_vision_height','opencv_vision_change_threshold',
                         'MIN_PROACTIVE_INTERVAL','MAX_PROACTIVE_INTERVAL','MAX_CONSECUTIVE_PROACTIVE',
                         'CHAT_ENGAGEMENT','AUTO_RESTART','AUTO_RESPOND','AUTO_RESPOND_INTERVAL',
@@ -851,6 +859,13 @@ class ConfigView:
             messagebox.showerror("Save Error",f"Failed to save:\n{str(e)}")
     
     def save_config_json(self):
+        # Map from input_field key → (config.json section, sub_key)
+        _CONTROLS_JSON_KEYS = {
+            'MAX_TOKENS':           ('controls', 'max_tokens'),
+            'MAX_TOOL_RESULT_CHARS':('controls', 'max_tool_result_chars'),
+            'MAX_TOOL_RESULTS':     ('controls', 'max_tool_results'),
+            'TEMPERATURE':          ('controls', 'temperature'),
+        }
         for key,field in self.input_fields.items():
             if key.startswith('ollama_'):
                 section='ollama'
@@ -867,6 +882,8 @@ class ConfigView:
             elif key in('use_vision','use_warudo','use_sound_effects'):
                 section='features'
                 sub_key=key
+            elif key in _CONTROLS_JSON_KEYS:
+                section, sub_key = _CONTROLS_JSON_KEYS[key]
             else:
                 continue
             if section not in self.config_data:
@@ -890,10 +907,13 @@ class ConfigView:
     def save_controls_py(self):
         updates={}
         for key,field in self.input_fields.items():
-            if key.startswith('USE_')or key.startswith('ENABLE_')or key.startswith('LOG_')or \
+            if key.startswith('USE_')or key.startswith('ENABLE_')or \
+               key.startswith('LOG_')or \
                key in('SAVE_MEMORY','MEMORY_LENGTH','MAX_LONG_TERM_MEMORIES','MAX_BASE_MEMORIES',
-                      'MAX_TOKENS','TEMPERATURE','VOICE_VOLUME','SOUND_EFFECT_VOLUME',
-                      'AVATAR_SPEECH','opencv_vision_fps','opencv_vision_interval',
+                      'MAX_TOKENS','MAX_TOOL_RESULT_CHARS','MAX_TOOL_RESULTS',
+                      'TEMPERATURE','VOICE_VOLUME','SOUND_EFFECT_VOLUME',
+                      'AVATAR_SPEECH','STREAM_RESPONSES',
+                      'opencv_vision_fps','opencv_vision_interval',
                       'opencv_vision_width','opencv_vision_height','opencv_vision_change_threshold',
                       'MIN_PROACTIVE_INTERVAL','MAX_PROACTIVE_INTERVAL','MAX_CONSECUTIVE_PROACTIVE',
                       'CHAT_ENGAGEMENT','AUTO_RESTART','AUTO_RESPOND','AUTO_RESPOND_INTERVAL',

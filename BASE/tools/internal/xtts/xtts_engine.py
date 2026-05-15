@@ -56,6 +56,20 @@ torchaudio.load = _soundfile_load
 from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import Xtts
 
+def _ws_frame(payload: bytes) -> bytes:
+    """Build a masked WebSocket text frame"""
+    import os
+    mask = os.urandom(4)
+    masked = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+    length = len(payload)
+    if length < 126:
+        header = bytes([0x81, 0x80 | length]) + mask
+    elif length < 65536:
+        header = bytes([0x81, 0xFE, length >> 8, length & 0xFF]) + mask
+    else:
+        header = bytes([0x81, 0xFF]) + length.to_bytes(8, 'big') + mask
+    return header + masked
+
 
 class XTTSEngine:
     """
@@ -69,25 +83,39 @@ class XTTSEngine:
     """
     
     __slots__ = (
-        'voice_sample_path', 'language', 'speed', 'logger',
-        '_device', '_tts_model', '_embeddings_cache', '_audio_cache',
+        'voice_sample_path', 'language', 'speed', 'temperature',
+        'length_penalty', 'repetition_penalty', 'top_k', 'top_p',
+        'gpt_cond_len', 'gpt_cond_chunk_len', 'max_ref_length',
+        'logger', '_device', '_tts_model', '_embeddings_cache', '_audio_cache',
         '_cache_dir', 'hub_client', '_initialized'
     )
     
     def __init__(self, voice_sample_path: str, language: str = 'en',
-                 speed: float = 1.0, logger=None, hub_client=None):
-        self.voice_sample_path = voice_sample_path
-        self.language = language
-        self.speed = speed
-        self.logger = logger
-        self.hub_client = hub_client
-        
-        self._device = None
-        self._tts_model = None
+                speed: float = 1.0, temperature: float = 0.7,
+                length_penalty: float = 1.0, repetition_penalty: float = 5.0,
+                top_k: int = 50, top_p: float = 0.85,
+                gpt_cond_len: int = 30, gpt_cond_chunk_len: int = 4,
+                max_ref_length: int = 60, logger=None, hub_client=None):
+        self.voice_sample_path    = voice_sample_path
+        self.language             = language
+        self.speed                = speed
+        self.temperature          = temperature
+        self.length_penalty       = length_penalty
+        self.repetition_penalty   = repetition_penalty
+        self.top_k                = top_k
+        self.top_p                = top_p
+        self.gpt_cond_len         = gpt_cond_len
+        self.gpt_cond_chunk_len   = gpt_cond_chunk_len
+        self.max_ref_length       = max_ref_length
+        self.logger               = logger
+        self.hub_client           = hub_client
+
+        self._device          = None
+        self._tts_model       = None
         self._embeddings_cache = {}
-        self._audio_cache = {}
-        self._cache_dir = None
-        self._initialized = False
+        self._audio_cache     = {}
+        self._cache_dir       = None
+        self._initialized     = False
     
     async def initialize(self) -> bool:
         """Initialize XTTS model and caches"""
@@ -494,20 +522,16 @@ class XTTSEngine:
             pass
     
     def _compute_voice_embeddings(self):
-        """Compute voice embeddings from sample"""
         cache_key = f"voice_{Path(self.voice_sample_path).stem}"
-        
         if cache_key in self._embeddings_cache:
             return
-        
         try:
             gpt_cond_latent, speaker_embedding = self._tts_model.get_conditioning_latents(
                 audio_path=[self.voice_sample_path],
-                gpt_cond_len=30,
-                gpt_cond_chunk_len=4,
-                max_ref_length=60
+                gpt_cond_len=self.gpt_cond_len,
+                gpt_cond_chunk_len=self.gpt_cond_chunk_len,
+                max_ref_length=self.max_ref_length
             )
-            
             self._embeddings_cache[cache_key] = {
                 'gpt_cond_latent': gpt_cond_latent,
                 'speaker_embedding': speaker_embedding
@@ -517,68 +541,105 @@ class XTTSEngine:
                 self.logger.error(f"[XTTS] Embedding computation failed: {e}")
     
     def _generate_audio(self, text: str):
-        """Generate audio from text"""
         cache_key = f"voice_{Path(self.voice_sample_path).stem}"
         embeddings = self._embeddings_cache.get(cache_key)
-        
         if not embeddings:
             raise RuntimeError("Voice embeddings not available")
-        
         out = self._tts_model.inference(
             text,
             self.language,
             embeddings['gpt_cond_latent'],
             embeddings['speaker_embedding'],
-            temperature=0.7,
-            length_penalty=1.0,
-            repetition_penalty=5.0,
-            top_k=50,
-            top_p=0.85,
+            temperature=self.temperature,
+            length_penalty=self.length_penalty,
+            repetition_penalty=self.repetition_penalty,
+            top_k=self.top_k,
+            top_p=self.top_p,
             speed=self.speed
         )
-        
-        audio_data = np.array(out['wav'])
-        sr = 24000
-        
-        return audio_data, sr
+        return np.array(out['wav']), 24000
     
     def _play_audio(self, audio_data, sr, volume, stop_flag):
-        """Play audio with volume control"""
+        """Play audio with volume control and Unity lip-sync notification"""
         try:
             if volume < 1.0:
                 audio_data = audio_data * volume
                 audio_data = np.clip(audio_data, -1.0, 1.0)
-            
+
+            duration = len(audio_data) / sr
             device = self._find_vb_cable_device()
-            
+
+            self._notify_unity_speech_start(duration)
+
             sd.play(audio_data, sr, device=device)
-            
+
             while sd.get_stream().active:
                 if stop_flag and stop_flag.is_set():
                     sd.stop()
+                    self._notify_unity_speech_end()
                     return "Interrupted"
-                sd.sleep(100)
-            
+                sd.sleep(50)
+
+            self._notify_unity_speech_end()
             return "[SUCCESS]"
-        
+
         except Exception as e:
+            self._notify_unity_speech_end()
             return f"Error: {e}"
-    
+        
+    def _get_unity_port(self) -> int:
+        try:
+            from BASE.core.config import Config
+            url = Config().unity_websocket_url  # e.g. ws://127.0.0.1:19192
+            return int(url.rstrip('/').split(':')[-1])
+        except Exception:
+            return 19192
+
+    def _notify_unity(self, payload: dict):
+        """Fire-and-forget WebSocket notification to Unity"""
+        import socket, base64, json
+        port = self._get_unity_port()
+        def _send():
+            try:
+                sock = socket.create_connection(("127.0.0.1", port), timeout=0.5)
+                key = base64.b64encode(b"xtts_lipsync_key").decode()
+                handshake = (
+                    f"GET / HTTP/1.1\r\n"
+                    f"Host: 127.0.0.1:{port}\r\n"
+                    "Upgrade: websocket\r\n"
+                    "Connection: Upgrade\r\n"
+                    f"Sec-WebSocket-Key: {key}\r\n"
+                    "Sec-WebSocket-Version: 13\r\n\r\n"
+                )
+                sock.sendall(handshake.encode())
+                sock.recv(512)
+                frame = _ws_frame(json.dumps(payload).encode())
+                sock.sendall(frame)
+                sock.close()
+            except Exception:
+                pass
+        threading.Thread(target=_send, daemon=True).start()
+
+    def _notify_unity_speech_start(self, duration: float):
+        self._notify_unity({"type": "speech_start", "duration": round(duration, 3)})
+
+    def _notify_unity_speech_end(self):
+            self._notify_unity({"type": "speech_end"})
+
     def _find_vb_cable_device(self):
         """Find VB-Cable device"""
         try:
-            from personality.bot_info import vb_cable_name
-            
+            from BASE.config.bot_info import vb_cable_name
+
             devices = sd.query_devices()
-            
+
             for i, device in enumerate(devices):
-                device_name = device['name']
                 if device['max_output_channels'] > 0:
-                    if vb_cable_name in device_name:
+                    if vb_cable_name in device['name']:
                         return i
-        except:
+        except Exception:
             pass
-        
+
         return None
     
     def _clean_text(self, text: str) -> str:

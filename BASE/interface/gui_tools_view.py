@@ -160,7 +160,7 @@ class ToolsView:
             first_tool = tools_with_components[0]['tool_name']
             self._switch_tool(first_tool)
         
-        self.parent.logger.system(f"[Tools View] Created {len(tools_with_components)} tool panel(s)")
+        # self.parent.logger.system(f"[Tools View] Created {len(tools_with_components)} tool panel(s)")
     
     def _create_sidebar_button(self, panel_info: Dict):
         tool_name = panel_info['tool_name']
@@ -309,7 +309,7 @@ class ToolsView:
         try:
             panel_frame = component.create_panel(parent)
             self.tool_components[tool_name] = component
-            self.parent.logger.system(f"[Tools View] Loaded panel for {tool_name}")
+            # self.parent.logger.system(f"[Tools View] Loaded panel for {tool_name}")
         except Exception as e:
             self.parent.logger.error(f"[Tools View] Error creating panel for {tool_name}: {e}")
             import traceback
@@ -359,86 +359,103 @@ class ToolsView:
         message_label.pack(expand=True)
     
     def _refresh_panels(self):
-        self.parent.logger.system("[Tools View] [Refresh] Starting hot-reload refresh...")
-        
-        active_tools = []
-        if hasattr(self.parent, 'ai_core') and hasattr(self.parent.ai_core, 'tool_manager'):
-            active_tools = self.parent.ai_core.tool_manager.get_active_tool_names()
-            self.parent.logger.system(f"[Tools View] Found {len(active_tools)} active tools")
-        
-        if self.hot_reload_manager and active_tools:
-            import asyncio
-            
-            self.parent.logger.system("[Tools View] Hot-reloading Python modules...")
-            
-            async def reload_all_tools():
-                success_count = 0
-                fail_count = 0
-                
-                for tool_name in active_tools:
-                    self.parent.logger.system(f"[Hot-Reload] Reloading {tool_name}...")
-                    
+        self.parent.logger.system("[Tools View] Starting refresh...")
+
+        ai_core = getattr(self.parent, 'ai_core', None)
+        tool_manager = getattr(ai_core, 'tool_manager', None) if ai_core else None
+        event_loop = getattr(ai_core, 'main_loop', None) if ai_core else None
+
+        # ----------------------------------------------------------------
+        # Step 1: Reload Python modules for currently-active tools
+        # ----------------------------------------------------------------
+        if self.hot_reload_manager and tool_manager:
+            active_tools = tool_manager.get_active_tool_names()
+
+            if active_tools:
+                import asyncio
+
+                async def _reload_modules():
+                    ok = fail = 0
+                    for name in active_tools:
+                        try:
+                            success = await self.hot_reload_manager.reload_tool(name, notify_gui=False)
+                            if success:
+                                self.parent.logger.success(f"[Hot-Reload] {name} reloaded")
+                                ok += 1
+                            else:
+                                self.parent.logger.error(f"[Hot-Reload] {name} reload failed")
+                                fail += 1
+                        except Exception as exc:
+                            self.parent.logger.error(f"[Hot-Reload] {name} error: {exc}")
+                            fail += 1
+                    return ok, fail
+
+                if event_loop:
+                    future = asyncio.run_coroutine_threadsafe(_reload_modules(), event_loop)
                     try:
-                        success = await self.hot_reload_manager.reload_tool(tool_name, notify_gui=False)
-                        
-                        if success:
-                            self.parent.logger.success(f"[Hot-Reload] [Confirmed] {tool_name} reloaded")
-                            success_count += 1
-                        else:
-                            self.parent.logger.error(f"[Hot-Reload] [X] {tool_name} reload failed")
-                            fail_count += 1
-                    except Exception as e:
-                        self.parent.logger.error(f"[Hot-Reload] [X] {tool_name} error: {e}")
-                        fail_count += 1
-                
-                return success_count, fail_count
-            
-            if hasattr(self.parent.ai_core, 'main_loop') and self.parent.ai_core.main_loop:
-                future = asyncio.run_coroutine_threadsafe(reload_all_tools(), self.parent.ai_core.main_loop)
-                
-                try:
-                    success_count, fail_count = future.result(timeout=30.0)
-                    self.parent.logger.system(f"[Hot-Reload] Module reload complete: {success_count} succeeded, {fail_count} failed")
-                except TimeoutError:
-                    self.parent.logger.error("[Hot-Reload] [Time] Reload timed out after 30s")
-                except Exception as e:
-                    self.parent.logger.error(f"[Hot-Reload] Error during reload: {e}")
-                    import traceback
-                    traceback.print_exc()
+                        ok, fail = future.result(timeout=30.0)
+                        self.parent.logger.system(
+                            f"[Hot-Reload] Module reload done: {ok} ok, {fail} failed"
+                        )
+                    except TimeoutError:
+                        self.parent.logger.error("[Hot-Reload] Timed out after 30s")
+                    except Exception as exc:
+                        self.parent.logger.error(f"[Hot-Reload] Error: {exc}")
             else:
-                self.parent.logger.warning("[Hot-Reload] No event loop - skipping module reload")
-        elif self.hot_reload_manager and not active_tools:
-            self.parent.logger.system("[Hot-Reload] No active tools to reload")
-        elif not self.hot_reload_manager:
-            self.parent.logger.warning("[Hot-Reload] Hot-reload manager not available")
-        
-        self.parent.logger.system("[Tools View] Refreshing GUI panels...")
-        
-        cleanup_count = 0
-        for tool_name, component in list(self.tool_components.items()):
+                self.parent.logger.system("[Hot-Reload] No active tools to reload")
+
+        # ----------------------------------------------------------------
+        # Step 2: Refresh tool_manager — stops all tools, re-discovers,
+        #         restarts every tool whose control variable is True.
+        #         This is what actually picks up the checkbox state.
+        # ----------------------------------------------------------------
+        if tool_manager and event_loop:
+            import asyncio
+            future = asyncio.run_coroutine_threadsafe(
+                tool_manager.refresh_tools(), event_loop
+            )
+            try:
+                result = future.result(timeout=30.0)
+                self.parent.logger.success(
+                    f"[Tools View] Tool manager refreshed — "
+                    f"started: {result.get('started', [])}, "
+                    f"failed: {result.get('failed', [])}"
+                )
+            except TimeoutError:
+                self.parent.logger.error("[Tools View] Tool manager refresh timed out")
+            except Exception as exc:
+                self.parent.logger.error(f"[Tools View] Tool manager refresh error: {exc}")
+        elif tool_manager and not event_loop:
+            self.parent.logger.warning(
+                "[Tools View] No event loop on ai_core — tool manager refresh skipped"
+            )
+
+        # ----------------------------------------------------------------
+        # Step 3: Rebuild GUI panels
+        # ----------------------------------------------------------------
+        for component in self.tool_components.values():
             if hasattr(component, 'cleanup'):
                 try:
                     component.cleanup()
-                    cleanup_count += 1
-                except Exception as e:
-                    self.parent.logger.warning(f"[Tools View] Error cleaning up {tool_name}: {e}")
-        
+                except Exception as exc:
+                    self.parent.logger.warning(f"[Tools View] Cleanup error: {exc}")
+
         for frame in self.tool_frames.values():
             frame.destroy()
-        
         for btn in self.sidebar_buttons.values():
             btn.destroy()
-        
+
         self.tool_frames.clear()
         self.tool_components.clear()
         self.sidebar_buttons.clear()
-        
-        self.parent.logger.system("[Tools View] Discovering and creating new panels...")
+        self.panel_loader.cleanup_all()
+
         self._discover_and_create_panels()
+
+        self.parent.logger.success(
+            f"[Tools View] Refresh complete ({len(self.tool_frames)} panel(s))"
+        )
         
-        new_panel_count = len(self.tool_frames)
-        self.parent.logger.success(f"[Tools View] [Confirmed] Complete refresh finished! ({new_panel_count} tool panels active)")
-    
     def cleanup(self):
         self.panel_loader.cleanup_all()
         self.tool_frames.clear()

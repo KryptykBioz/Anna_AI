@@ -33,8 +33,8 @@ from BASE.core.streaming_response_handler import (
 from BASE.core.response_decider import ResponseDecider
 from BASE.core.responsive.responsive_constructor import ResponsiveConstructor
 
-from personality.controls import KILL_COMMAND
-from personality.bot_info import username, agentname
+from BASE.config.controls import KILL_COMMAND
+from BASE.config.bot_info import username, agentname
 
 
 class ProcessingDelegator:
@@ -44,12 +44,13 @@ class ProcessingDelegator:
     """
     
     __slots__ = (
-        'config', 'controls', 'project_root', 'memory_manager', 'logger',
-        'memory_search', 'session_file_manager', 'tool_manager',
-        'thought_processor', 'responsive_constructor', 'response_decider',
-        'streaming_enabled', 'streaming_handler', 'ollama_streaming',
-        'hot_reload_manager', 'cognitive_filter'
-    )
+            'config', 'controls', 'project_root', 'memory_manager', 'logger',
+            'memory_search', 'session_file_manager', 'tool_manager',
+            'thought_processor', 'responsive_constructor', 'response_decider',
+            'streaming_enabled', 'streaming_handler', 'ollama_streaming',
+            'hot_reload_manager', 'cognitive_filter',
+            '_prompt_judge_ref'             
+        )
     
     def __init__(
         self,
@@ -111,7 +112,7 @@ class ProcessingDelegator:
         self.cognitive_filter = CognitiveFilter(config=config, controls=controls_module, logger=self.logger)
         self.logger.system("Cognitive response filter initialized")
         
-        # NEW: Initialize streaming components
+        # Initialize streaming components
         self.streaming_enabled = getattr(controls_module, 'USE_STREAMING', False)
         
         if self.streaming_enabled:
@@ -130,6 +131,8 @@ class ProcessingDelegator:
             f"ProcessingDelegator initialized "
             f"(streaming: {'ENABLED' if self.streaming_enabled else 'DISABLED'})"
         )
+
+        self._prompt_judge_ref = None
     
     def initialize_streaming(self, tts_tool):
         """
@@ -366,31 +369,13 @@ class ProcessingDelegator:
         chat_context: Optional[str] = None,
         is_chat_engagement: bool = False
     ) -> Optional[str]:
-        """
-        Generate response with optional streaming
-        
-        MODIFIED: Now supports streaming mode when enabled
-        Falls back to non-streaming if streaming not available
-        
-        Args:
-            user_text: User input text
-            context_parts: Additional context
-            chat_context: Live chat context
-            is_chat_engagement: Whether responding to chat
-        
-        Returns:
-            Complete response text (even if streamed)
-        """
-        # Get recent thoughts for context
         thought_buffer = self.thought_processor.thought_buffer
         recent_thoughts = thought_buffer.get_thoughts_for_response()
-        
-        # Build response context
+
         response_context = self._build_response_context(
             context_parts, chat_context, is_chat_engagement
         )
-        
-        # Build prompt using ResponsiveConstructor
+
         prompt = self.responsive_constructor.build_responsive_prompt(
             thought_chain=recent_thoughts,
             user_text=user_text,
@@ -398,14 +383,13 @@ class ProcessingDelegator:
             chat_context=chat_context if is_chat_engagement else None,
             is_chat_engagement=is_chat_engagement
         )
-        
-        # DECISION POINT: Stream or not?
+
         use_streaming = (
-            self.streaming_enabled and 
-            self.streaming_handler is not None and 
+            self.streaming_enabled and
+            self.streaming_handler is not None and
             self.ollama_streaming is not None
         )
-        
+
         if use_streaming:
             response = await self._generate_streaming(
                 prompt=prompt,
@@ -419,7 +403,6 @@ class ProcessingDelegator:
                 thought_buffer=thought_buffer
             )
 
-        # Cognitive filter: validate before delivery
         if response:
             approved, reason = self.cognitive_filter.check_response(
                 response=response,
@@ -427,7 +410,7 @@ class ProcessingDelegator:
                 context_parts=response_context
             )
             if not approved:
-                self.logger.system(f"[CognitiveFilter] Response discarded ({reason}) — skipping cycle")
+                self.logger.filter(f"[CognitiveFilter] Response discarded ({reason}) — skipping cycle")
                 return None
             self.cognitive_filter.update_last_response(response)
 
@@ -440,64 +423,46 @@ class ProcessingDelegator:
         context_parts: List[str],
         thought_buffer
     ) -> Optional[str]:
-        """
-        Generate response with streaming
-        
-        NEW METHOD: Handles streaming response generation with memory storage
-        
-        Returns:
-            Complete response text (after streaming completes)
-        """
         self.logger.system("[Streaming] Starting streaming response generation")
-        
+
         try:
-            # Stream response from Ollama
             response_stream = self.ollama_streaming.stream_chat_response(
                 prompt=prompt,
                 model=self.config.text_model,
                 system_prompt=None
             )
-            
-            # Stream to TTS and store to memory
-            # This handles everything: streaming, interruption, memory storage
+
             complete_response = await self.streaming_handler.stream_and_store(
                 response_stream=response_stream,
                 thought_buffer=thought_buffer,
                 context_parts=context_parts,
                 user_input=user_text
             )
-            
-            # Clean response
+
             if complete_response:
                 import re
                 THINK_PATTERN = re.compile(r"<think>(.*?)</think>", re.DOTALL)
                 complete_response = THINK_PATTERN.sub('', complete_response).strip()
-                
-                # Post-process (emoji removal)
+
                 from BASE.core.clean_response import remove_emoji
                 complete_response = remove_emoji(complete_response)
-            
-            # Verify response
+
             if not complete_response or not complete_response.strip():
                 self.logger.warning("[Streaming] Response empty after cleaning")
                 thought_buffer.response_trigger.clear()
                 return None
-            
-            # Clear flag after successful response
+
             thought_buffer.response_trigger.clear()
-            
-            self.logger.system(
-                f"[Streaming] Complete: {len(complete_response)} chars"
-            )
-            
+
+            self.logger.system(f"[Streaming] Complete: {len(complete_response)} chars")
+            self._submit_responsive_to_judge(prompt, complete_response)   # NEW
+
             return complete_response
-        
+
         except Exception as e:
             self.logger.error(f"[Streaming] Error: {e}")
             import traceback
             traceback.print_exc()
-            
-            # Fall back to non-streaming on error
             self.logger.system("[Streaming] Falling back to non-streaming mode")
             return await self._generate_non_streaming(prompt, thought_buffer)
     
@@ -506,48 +471,34 @@ class ProcessingDelegator:
         prompt: str,
         thought_buffer
     ) -> Optional[str]:
-        """
-        Generate response without streaming (original behavior)
-        
-        UNCHANGED: Original non-streaming implementation
-        
-        Returns:
-            Complete response text
-        """
-        # Generate response
         response = self._call_ollama(
             prompt=prompt,
             model=self.config.text_model,
             system_prompt=None
         )
-        
-        # Clean response
+
         import re
         THINK_PATTERN = re.compile(r"<think>(.*?)</think>", re.DOTALL)
         response = THINK_PATTERN.sub('', response).strip()
-        
-        # Check if response is empty
+
         if not response or not response.strip():
             self.logger.warning("[Response] Generated empty response")
             thought_buffer.response_trigger.clear()
             return None
-        
-        # Post-process (emoji removal)
+
         from BASE.core.clean_response import remove_emoji
         response = remove_emoji(response)
-        
-        # Verify response after cleaning
+
         if not response or not response.strip():
             self.logger.warning("[Response] Response became empty after cleaning")
             thought_buffer.response_trigger.clear()
             return None
-        
-        # Clear the flag after successful response
+
         thought_buffer.response_trigger.clear()
-        
-        # Log the response
-        self.logger.system(f"[Response] Generated {len(response)} chars: {response[:60]}...")
-        
+
+        self.logger.system(f"[Response] Generated {len(response)} chars: {response}")
+        self._submit_responsive_to_judge(prompt, response)   # NEW
+
         return response
     
     def _build_response_context(
@@ -620,6 +571,18 @@ class ProcessingDelegator:
         except Exception as e:
             self.logger.error(f"Ollama error: {e}")
             return ""
+        
+    
+    def _submit_responsive_to_judge(self, prompt: str, response: str):
+        """Forward responsive prompt+response to the prompt judge if enabled."""
+        if not getattr(self.controls, 'USE_PROMPT_JUDGE', False):
+            return
+        if self._prompt_judge_ref is None:
+            self._prompt_judge_ref = getattr(
+                self.thought_processor, '_prompt_judge', None
+            )
+        if self._prompt_judge_ref:
+            self._prompt_judge_ref.submit("responsive", prompt, response)
     
     # ========================================================================
     # HELPER METHODS (UNCHANGED - keeping rest of class)

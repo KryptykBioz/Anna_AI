@@ -504,7 +504,7 @@ USE_BASE_MEMORY = True
 USE_LONG_MEMORY = True
 USE_SHORT_MEMORY = True
 SAVE_MEMORY = True
-MEMORY_LENGTH = 25
+MEMORY_LENGTH = 50
 
 # Avatar features
 AVATAR_SPEECH = True
@@ -1100,6 +1100,409 @@ WebSocket server response or connection accepted
 - [x] Warudo character's lips move in sync
 - [x] No dropped audio packets
 - [x] GPU utilization visible in nvidia-smi
+
+---
+
+## FINAL FILETREE
+**(All features installed)**
+
+├── BASE/
+│   ├── api/
+│   │   └── main.py
+│   ├── config/
+│   │   ├── bot_info.py
+│   │   └── controls.py
+│   ├── core/
+│   │   ├── action/
+│   │   │   ├── action_constructor.py
+│   │   │   └── action_parts.py
+│   │   ├── proactive/
+│   │   │   ├── proactive_constructor.py
+│   │   │   └── proactive_parts.py
+│   │   ├── reactive/
+│   │   │   ├── reactive_constructor.py
+│   │   │   └── reactive_parts.py
+│   │   ├── reflective/
+│   │   │   ├── reflective_constructor.py
+│   │   │   └── reflective_parts.py
+│   │   ├── responsive/
+│   │   │   ├── responsive_constructor.py
+│   │   │   └── responsive_parts.py
+│   │   ├── __init__.py
+│   │   ├── action_state_manager.py
+│   │   ├── ai_core.py
+│   │   ├── clean_response.py
+│   │   ├── cognitive_filter.py
+│   │   ├── cognitive_loop_manager.py
+│   │   ├── cognitive_loop_recovery.py
+│   │   ├── config.py
+│   │   ├── context_detector.py
+│   │   ├── control_manager.py
+│   │   ├── core_hot_reload_manager.py
+│   │   ├── core_initializer.py
+│   │   ├── dynamic_control_initializer.py
+│   │   ├── logger.py
+│   │   ├── processing_delegator.py
+│   │   ├── response_decider.py
+│   │   ├── speak_judge.py
+│   │   ├── streaming_response_handler.py
+│   │   ├── thinking_modes.py
+│   │   ├── thought_buffer.py
+│   │   ├── thought_processor.py
+│   │   └── tool_hot_reload_manager.py
+│   ├── handlers/
+│   │   ├── base_tool.py
+│   │   ├── chat_engagement.py
+│   │   ├── chat_event_converter.py
+│   │   ├── content_filter.py
+│   │   ├── internal_tool_interface.py
+│   │   ├── internal_tool_manager.py
+│   │   ├── tool_instruction_builder.py
+│   │   ├── tool_lifecycle.py
+│   │   ├── tool_manager.py
+│   │   └── tts_interface.py
+│   ├── interface/
+│   │   ├── dynamic_tool_panel_loader.py
+│   │   ├── gui_chat_view.py
+│   │   ├── gui_components.py
+│   │   ├── gui_config_view.py
+│   │   ├── gui_controls_view.py
+│   │   ├── gui_files_view.py
+│   │   ├── gui_info_view.py
+│   │   ├── gui_interface.py
+│   │   ├── gui_message_handler.py
+│   │   ├── gui_message_processor.py
+│   │   ├── gui_session_files_panel.py
+│   │   ├── gui_theme_manager.py
+│   │   ├── gui_themes.py
+│   │   ├── gui_tools_view.py
+│   │   ├── gui_ui_builder.py
+│   │   └── voice_manager.py
+│   ├── recall/
+│   │   ├── __init__.py
+│   │   ├── embed_document.py
+│   │   ├── embed_personality.py
+│   │   ├── memory_encryption.py
+│   │   ├── memory_integration.py
+│   │   ├── memory_manager.py
+│   │   ├── memory_search.py
+│   │   ├── session_file_manager.py
+│   │   └── summarizer.py
+│   ├── services/
+│   │   ├── voice_hub_client.py
+│   │   ├── voice_hub_protocol.py
+│   │   └── voice_hub_server.py
+│   ├── tools/
+│   │   ├── installed/
+│   │   │   ├── bing_search/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   ├── README.md
+│   │   │   │   └── tool.py
+│   │   │   ├── calculator/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── calendar/
+│   │   │   │   ├── calendar_manager.py
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   ├── README.md
+│   │   │   │   └── tool.py
+│   │   │   ├── canvas/
+│   │   │   │   ├── canvas_memory.json
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   ├── README.md
+│   │   │   │   └── tool.py
+│   │   │   ├── coding_VS_Code/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── dice_roller/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   ├── README.md
+│   │   │   │   └── tool.py
+│   │   │   ├── discord_bot/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── config.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── discord_chat/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── config.py
+│   │   │   │   ├── discord_voice_sink.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── duckduckgo_search/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   ├── README.md
+│   │   │   │   └── tool.py
+│   │   │   ├── game_guide/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── game_vision/
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── group_chat/
+│   │   │   │   ├── config.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── image_generator/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   ├── service.py
+│   │   │   │   └── tool.py
+│   │   │   ├── league_of_legends/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── mcp_bridge/
+│   │   │   │   ├── information.json
+│   │   │   │   ├── integration_guide.md
+│   │   │   │   └── tool.py
+│   │   │   ├── memory_search/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── minecraft/
+│   │   │   │   ├── minecraft_bot/
+│   │   │   │   │   ├── actions/
+│   │   │   │   │   │   ├── building.js
+│   │   │   │   │   │   ├── combat.js
+│   │   │   │   │   │   ├── gathering.js
+│   │   │   │   │   │   ├── interaction.js
+│   │   │   │   │   │   ├── movement.js
+│   │   │   │   │   │   ├── player-interaction.js
+│   │   │   │   │   │   └── utility.js
+│   │   │   │   │   ├── .env
+│   │   │   │   │   ├── bot-actions.js
+│   │   │   │   │   ├── bot.js
+│   │   │   │   │   ├── command-parser.js
+│   │   │   │   │   ├── minecraft_bot_POV.html
+│   │   │   │   │   ├── package-lock.json
+│   │   │   │   │   ├── package.json
+│   │   │   │   │   ├── server.js
+│   │   │   │   │   └── world-info.js
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   ├── mc_start.bat
+│   │   │   │   └── tool.py
+│   │   │   ├── notes/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   ├── notes.py
+│   │   │   │   └── tool.py
+│   │   │   ├── opencv_vision/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   ├── README.md
+│   │   │   │   └── tool.py
+│   │   │   ├── reminders/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   ├── reminders.py
+│   │   │   │   └── tool.py
+│   │   │   ├── screenshot_vision/
+│   │   │   │   ├── gui.py
+│   │   │   │   ├── information.json
+│   │   │   │   ├── new_component.py
+│   │   │   │   └── tool.py
+│   │   │   ├── sound_effects/
+│   │   │   │   ├── effects/
+│   │   │   │   │   ├── hello.mp3
+│   │   │   │   │   ├── impostor.mp3
+│   │   │   │   │   ├── jumpscare.mp3
+│   │   │   │   │   └── squee.mp3
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── system_info/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── twitch_chat/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── config.py
+│   │   │   │   ├── gui.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── unity_animation/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── unity_controller/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── user_details/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   ├── README.md
+│   │   │   │   └── tool.py
+│   │   │   ├── warudo/
+│   │   │   │   ├── animate_avatar.py
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── web_fetch/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   ├── wiki_search/
+│   │   │   │   ├── component.py
+│   │   │   │   ├── information.json
+│   │   │   │   └── tool.py
+│   │   │   └── youtube_chat/
+│   │   │       ├── component.py
+│   │   │       ├── config.py
+│   │   │       ├── information.json
+│   │   │       └── tool.py
+│   │   ├── internal/
+│   │   │   ├── pyttsx3/
+│   │   │   │   ├── information.json
+│   │   │   │   ├── pyttsx3_engine.py
+│   │   │   │   └── tool.py
+│   │   │   ├── speaker_verification/
+│   │   │   │   ├── information.json
+│   │   │   │   ├── README.md
+│   │   │   │   ├── speaker_verification_engine.py
+│   │   │   │   └── tool.py
+│   │   │   ├── vosk/
+│   │   │   │   ├── information.json
+│   │   │   │   ├── tool.py
+│   │   │   │   └── vosk_engine.py
+│   │   │   ├── whisper/
+│   │   │   │   ├── information.json
+│   │   │   │   ├── tool.py
+│   │   │   │   └── whisper_engine.py
+│   │   │   └── xtts/
+│   │   │       ├── information.json
+│   │   │       ├── tool.py
+│   │   │       ├── xtts_config.json
+│   │   │       └── xtts_engine.py
+│   │   └── __init__.py
+│   └── __init__.py
+├── Documentation/
+│   ├── CognitiveProcessingLoop.html
+│   └── OVERVIEW.md
+├── models/
+│   ├── tts_models--multilingual--multi-dataset--xtts_v2/
+│   │   ├── config.json
+│   │   ├── hash.md5
+│   │   ├── model.pth
+│   │   ├── speakers_xtts.pth
+│   │   ├── tos_agreed.txt
+│   │   └── vocab.json
+│   └── vosk-model-en-us-0.42-gigaspeech/
+│       ├── am/
+│       │   ├── cmvn_opts
+│       │   ├── final.mdl
+│       │   ├── frame_subsampling_factor
+│       │   ├── phones.txt
+│       │   └── tree
+│       ├── conf/
+│       │   ├── ivector.conf
+│       │   ├── mfcc.conf
+│       │   └── model.conf
+│       ├── graph/
+│       │   ├── phones/
+│       │   │   ├── align_lexicon.int
+│       │   │   ├── align_lexicon.txt
+│       │   │   ├── disambig.int
+│       │   │   ├── disambig.txt
+│       │   │   ├── optional_silence.csl
+│       │   │   ├── optional_silence.int
+│       │   │   ├── optional_silence.txt
+│       │   │   ├── silence.csl
+│       │   │   ├── word_boundary.int
+│       │   │   └── word_boundary.txt
+│       │   ├── disambig_tid.int
+│       │   ├── HCLG.fst
+│       │   ├── num_pdfs
+│       │   ├── phones.txt
+│       │   └── words.txt
+│       ├── ivector/
+│       │   ├── final.dubm
+│       │   ├── final.ie
+│       │   ├── final.mat
+│       │   ├── global_cmvn.stats
+│       │   ├── online_cmvn.conf
+│       │   ├── splice.conf
+│       │   └── splice_opts
+│       ├── rescore/
+│       │   ├── G.carpa
+│       │   └── G.fst
+│       ├── rnnlm/
+│       │   ├── feat_embedding.final.mat
+│       │   ├── final.raw
+│       │   ├── special_symbol_opts.conf
+│       │   ├── special_symbol_opts.txt
+│       │   └── word_feats.txt
+│       └── README
+├── personality/
+│   ├── avatar/
+│   │   ├── Anna.vrm
+│   │   ├── Anna_Animation_Profile.json
+│   │   ├── Anna_Animations_Blueprint.json
+│   │   ├── Anna_Character_Asset.json
+│   │   ├── Anna_Expression_Profile.json
+│   │   └── anna_model.vroid
+│   ├── base_memory/
+│   │   ├── base_files/
+│   │   │   ├── embeddings/
+│   │   │   │   └── mecha_break_embeddings.json
+│   │   │   └── mecha_break.md
+│   │   ├── base_personality/
+│   │   │   ├── embeddings/
+│   │   │   ├── anna_response_training.py
+│   │   │   └── anna_thought_training.py
+│   │   └── game_guides/
+│   │       ├── embeddings/
+│   │       └── mecha_break.md
+│   ├── memory/
+│   │   ├── .keycheck
+│   │   ├── .machine_salt
+│   │   ├── .machine_secret
+│   │   ├── .salt
+│   │   ├── calendar.json
+│   │   ├── long_memory.json
+│   │   ├── long_memory.json.bak
+│   │   ├── medium_memory.json
+│   │   ├── medium_memory.json.bak
+│   │   ├── notes.json
+│   │   ├── reminders.json
+│   │   ├── short_memory.json
+│   │   ├── short_memory.json.bak
+│   │   └── user_details.json
+│   ├── prompts/
+│   │   └── personality_prompt_parts.py
+│   ├── voice/
+│   │   ├── anna_voice_sample.mp3
+│   │   └── raven_voice_sample.mp3
+│   └── config.json
+├── user_tools/
+│   ├── voice_recording/
+│   │   ├── guided_record.py
+│   │   ├── INSTALLATION.md
+│   │   ├── interactive_record.py
+│   │   ├── quick_record.py
+│   │   ├── record_voice_sample.py
+│   │   └── RECORDING_GUIDE.md
+│   ├── change_memory_password.py
+│   └── decrypt_memory.py
+├── .env
+├── .env.template
+├── .gitignore
+├── MINECRAFT_BOT_START.bat
+├── README.md
+├── requirements.txt
+├── SETUP.md
+└── START.bat
+
 
 ---
 

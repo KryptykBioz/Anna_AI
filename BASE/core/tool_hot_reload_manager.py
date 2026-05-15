@@ -130,31 +130,10 @@ class HotReloadManager:
     # ========================================================================
     
     async def reload_tool(self, tool_name: str, notify_gui: bool = True) -> bool:
-        """
-        Hot-reload a specific tool
-        
-        Process:
-        1. Check if tool is active
-        2. Save current tool state
-        3. Stop the tool (call end())
-        4. Reload tool.py module
-        5. Restart the tool (call start())
-        6. Restore state
-        7. Update version tracking
-        8. Notify GUI
-        
-        Args:
-            tool_name: Name of tool to reload
-            notify_gui: Whether to notify GUI callback
-        
-        Returns:
-            True if reload successful, False otherwise
-        """
         if not self.tool_manager or not self.lifecycle_manager:
             self.logger.error("[Hot-Reload] Tool manager not registered")
             return False
-        
-        # Check if tool exists
+
         tool_metadata = self.tool_manager.get_tool_metadata(tool_name)
         if not tool_metadata:
             error_msg = f"Tool not found: {tool_name}"
@@ -162,8 +141,7 @@ class HotReloadManager:
             if notify_gui:
                 self._notify_gui(tool_name, False, error_msg)
             return False
-        
-        # Get tool file path
+
         tool_info = self.lifecycle_manager._tool_metadata.get(tool_name)
         if not tool_info:
             error_msg = f"Tool metadata not found: {tool_name}"
@@ -171,69 +149,47 @@ class HotReloadManager:
             if notify_gui:
                 self._notify_gui(tool_name, False, error_msg)
             return False
-        
-        tool_file = tool_info['tool_file']
-        
+
         start_time = time.time()
         was_active = tool_name in self.tool_manager.tool_instances
-        
+
         try:
             self.logger.system(f"[Hot-Reload] Reloading {tool_name}...")
-            
-            # Step 1: Save state if tool is active
+
             if was_active:
                 self._save_tool_state(tool_name)
-            
-            # Step 2: Stop tool if active
-            if was_active:
                 await self.lifecycle_manager.stop_tool(tool_name)
                 self.logger.system(f"[Hot-Reload] Stopped {tool_name}")
-            
-            # Step 3: Reload tool.py module
+
+            # Evict stale module so load_tool_class picks up file changes.
+            # Use the same naming convention as load_tool_class: tool_{tool_name}
             module_name = f"tool_{tool_name}"
-            
-            if module_name in sys.modules:
-                # Module already loaded, reload it
-                module = sys.modules[module_name]
-                importlib.reload(module)
-                self.logger.system(f"[Hot-Reload] Reloaded module: {module_name}")
-            else:
-                # First time load (shouldn't happen, but handle it)
-                spec = importlib.util.spec_from_file_location(module_name, str(tool_file))
-                if spec and spec.loader:
-                    module = importlib.util.module_from_spec(spec)
-                    sys.modules[module_name] = module
-                    spec.loader.exec_module(module)
-                    self.logger.system(f"[Hot-Reload] Loaded module: {module_name}")
-            
-            # Step 4: Restart tool if it was active
+            sys.modules.pop(module_name, None)
+
             if was_active:
                 success = await self.lifecycle_manager.start_tool(
                     tool_name=tool_name,
                     config=self.config,
                     controls=self.controls
                 )
-                
+
                 if not success:
                     error_msg = f"Failed to restart {tool_name}"
                     self.logger.error(f"[Hot-Reload] {error_msg}")
                     if notify_gui:
                         self._notify_gui(tool_name, False, error_msg)
                     return False
-                
+
                 self.logger.system(f"[Hot-Reload] Restarted {tool_name}")
-                
-                # Step 5: Restore state
+
                 if tool_name in self.state_cache:
                     self._restore_tool_state(tool_name)
-            
-            # Step 6: Update tracking
+
             self.reload_count[tool_name] = self.reload_count.get(tool_name, 0) + 1
             self.last_reload_time[tool_name] = time.time()
-            
+
             reload_time = time.time() - start_time
-            
-            # Step 7: Record in history
+
             self.reload_history.append({
                 'tool_name': tool_name,
                 'timestamp': datetime.now().isoformat(),
@@ -242,30 +198,28 @@ class HotReloadManager:
                 'reload_time': reload_time,
                 'version': self.reload_count[tool_name]
             })
-            
+
             success_msg = (
                 f"Reloaded {tool_name} "
                 f"(v{self.reload_count[tool_name]}) "
                 f"in {reload_time:.2f}s"
             )
-            
+
             self.logger.system(f"[Hot-Reload] SUCCESS - {success_msg}")
-            
-            # Step 8: Notify GUI
+
             if notify_gui:
                 self._notify_gui(tool_name, True, success_msg)
-            
+
             return True
-            
+
         except Exception as e:
             reload_time = time.time() - start_time
             error_msg = f"Failed to reload {tool_name}: {str(e)}"
-            
+
             self.logger.error(f"[Hot-Reload] {error_msg}")
             import traceback
             traceback.print_exc()
-            
-            # Record failure in history
+
             self.reload_history.append({
                 'tool_name': tool_name,
                 'timestamp': datetime.now().isoformat(),
@@ -273,11 +227,10 @@ class HotReloadManager:
                 'error': str(e),
                 'reload_time': reload_time
             })
-            
-            # Notify GUI
+
             if notify_gui:
                 self._notify_gui(tool_name, False, error_msg)
-            
+
             return False
     
     def reload_tool_sync(self, tool_name: str) -> bool:

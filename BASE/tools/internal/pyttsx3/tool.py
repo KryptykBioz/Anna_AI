@@ -104,7 +104,7 @@ class Pyttsx3Tool(InternalToolInterface):
             self._stop_event.clear()
         
         try:
-            import personality.controls as controls
+            import BASE.config.controls as controls
             volume = controls.VOICE_VOLUME
             
             if self.hub_client and self.hub_client.is_connected():
@@ -152,7 +152,7 @@ class Pyttsx3Tool(InternalToolInterface):
                 current = temp_engine.getProperty('voice')
                 del temp_engine
                 
-                import personality.controls as controls
+                import BASE.config.controls as controls
                 volume = controls.VOICE_VOLUME
                 
                 info['current_voice'] = current
@@ -172,7 +172,7 @@ class Pyttsx3Tool(InternalToolInterface):
         if self._logger:
             self._logger.system(f"[pyttsx3 Hub] Requesting speech via Voice Hub...")
         
-        from personality.bot_info import voiceIndex
+        from BASE.config.bot_info import voiceIndex
         
         result = self.hub_client.request_speech(
             text=text,

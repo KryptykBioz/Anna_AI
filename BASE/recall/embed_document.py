@@ -1,4 +1,4 @@
-# Filename: BASE/memory/embed_document.py
+# Filename: BASE/recall/embed_document.py
 """
 Batch Document Embedding Script for RAG System
 Processes all files in a directory and saves embeddings to another directory

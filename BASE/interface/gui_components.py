@@ -14,7 +14,7 @@ import json
 from BASE.interface.gui_themes import DarkTheme
 
 try:
-    import personality.controls as controls
+    import BASE.config.controls as controls
 except ImportError as e:
     print(f"Warning: Some imports failed: {e}")
 
@@ -241,7 +241,6 @@ class ControlPanelManager:
                  "Filter profanity and controversial content"),
                 ("AI Filter", "USE_AI_CONTENT_FILTER",
                  "Use AI model for semantic filtering"),
-                ("Response Filter", "COGNITIVE_FILTER", "Filter cognitive responses")
             ],
             "Debug & Logging": [
                 ("Log System", "LOG_SYSTEM_INFORMATION", "Log system messages"),

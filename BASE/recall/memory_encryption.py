@@ -1,4 +1,4 @@
-# Filename: BASE/memory/memory_encryption.py
+# Filename: BASE/recall/memory_encryption.py
 """
 Memory Encryption Layer for AI Agent Memory System
 AES-256-GCM encryption with crash-safe atomic writes.
@@ -465,12 +465,12 @@ def _verify_key(memory_dir: Path, key: bytes) -> None:
 
     if not verify_file.exists():
         # Write a known plaintext as verification token
-        token = b'ANNA_MEMORY_KEY_OK'
+        token = b'AGENT_MEMORY_KEY_OK'
         save_encrypted(verify_file, token, key)
         return
 
     plaintext = load_encrypted(verify_file, key)
-    if plaintext != b'ANNA_MEMORY_KEY_OK':
+    if plaintext != b'AGENT_MEMORY_KEY_OK':
         raise InvalidTag()
     
 # ============================================================================
@@ -575,7 +575,7 @@ def change_password(memory_dir: Path) -> bool:
         salt_file.write_text(new_salt.hex(), encoding='utf-8')
         # Overwrite .keycheck with token encrypted under new key
         check_file.unlink(missing_ok=True)
-        save_encrypted(check_file, b'ANNA_MEMORY_KEY_OK', new_key)
+        save_encrypted(check_file, b'AGENT_MEMORY_KEY_OK', new_key)
     except Exception as e:
         print(f"[Password Change] Failed to write new salt/keycheck: {e}")
         print("[Password Change] Restoring old salt — memory files are unchanged.")

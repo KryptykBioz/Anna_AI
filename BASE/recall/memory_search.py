@@ -1,4 +1,4 @@
-# Filename: BASE/memory/memory_search.py
+# Filename: BASE/recall/memory_search.py
 """
 Memory Search Module - Universal Method Wrapper
 Complete implementation with automatic delegation for ANY method call
@@ -27,33 +27,36 @@ class MemorySearch:
     __slots__ = (
         'logger', 'memory_manager', 'memory_dir', 'thought_examples_dir',
         'response_examples_dir', 'thought_embeddings', 'response_embeddings',
-        'ollama_url', 'embed_model'
+        'ollama_url', 'embed_model', 'config', '_chunk_size'
     )
-    
-    def __init__(self, memory_dir_or_manager: Optional[Any] = None, logger=None):
-        self.logger = logger
-        self.memory_manager = None
-        
-        # Determine memory directory from various input types
-        memory_dir = self._resolve_memory_dir(memory_dir_or_manager)
-        
-        self.memory_dir = Path(memory_dir) if memory_dir else None
-        
-        if self.memory_dir:
-            self.thought_examples_dir = self.memory_dir / "thought_examples"
-            self.response_examples_dir = self.memory_dir / "response_examples"
-        else:
-            self.thought_examples_dir = None
-            self.response_examples_dir = None
-        
-        # Load embeddings on init
-        self.thought_embeddings = {}  # filename -> loaded data
-        self.response_embeddings = {}
-        
-        self.ollama_url = "http://localhost:11434"
-        self.embed_model = "nomic-embed-text"
-        
-        self._load_embeddings()
+
+    def __init__(self, memory_dir_or_manager: Optional[Any] = None, logger=None, config=None):
+            self.logger  = logger
+            self.memory_manager = None
+            self.config  = config
+
+            max_chars        = max(50, getattr(config, 'MAX_TOOL_RESULT_CHARS', 1000)) if config else 1000
+            n_results        = max(1,  getattr(config, 'MAX_TOOL_RESULTS',       3))   if config else 3
+            self._chunk_size = max(50, max_chars // n_results)
+
+            memory_dir = self._resolve_memory_dir(memory_dir_or_manager)
+
+            self.memory_dir = Path(memory_dir) if memory_dir else None
+
+            if self.memory_dir:
+                self.thought_examples_dir  = self.memory_dir / "thought_examples"
+                self.response_examples_dir = self.memory_dir / "response_examples"
+            else:
+                self.thought_examples_dir  = None
+                self.response_examples_dir = None
+
+            self.thought_embeddings  = {}
+            self.response_embeddings = {}
+
+            self.ollama_url  = "http://localhost:11434"
+            self.embed_model = "nomic-embed-text"
+
+            self._load_embeddings()
     
     def _resolve_memory_dir(self, memory_input: Optional[Any]) -> Optional[Path]:
         if memory_input is None:
@@ -137,111 +140,75 @@ class MemorySearch:
     # Add these methods to the MemorySearch class in memory_search.py
 
     def search_medium_memory(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
-        """
-        Search medium-term memory (today's earlier messages)
-        
-        Args:
-            query: Search query text
-            k: Number of results to return
-        
-        Returns:
-            List of matching entries with similarity scores
-        """
-        if not self.memory_manager:
-            if self.logger:
-                self.logger.debug("[MemorySearch] No memory_manager available for medium search")
-            return []
-        
-        # Get medium memory entries
-        medium_entries = getattr(self.memory_manager, 'medium_memory', [])
-        if not medium_entries:
-            return []
-        
-        # Get query embedding
-        query_embedding = self.get_embedding_vector(query)
-        if not query_embedding:
-            if self.logger:
-                self.logger.warning("[MemorySearch] Failed to get query embedding for medium search")
-            return []
-        
-        # Calculate similarities
-        results = []
-        for entry in medium_entries:
-            if 'embedding' not in entry or not entry['embedding']:
-                continue
-            
-            similarity = self._cosine_similarity(query_embedding, entry['embedding'])
-            
-            if similarity > 0.3:  # Minimum threshold
-                content = entry.get('content', '')
-                # [Changed] Truncate content to 1000 chars
-                truncated_content = self._truncate_text(content, 1000)
-                
-                results.append({
-                    'role': entry.get('role', 'unknown'),
-                    'content': truncated_content,
-                    'timestamp': entry.get('timestamp', ''),
-                    'date': entry.get('date', ''),
-                    'similarity': similarity
-                })
-        
-        # Sort by similarity and return top k
-        results.sort(key=lambda x: x['similarity'], reverse=True)
-        return results[:k]
+            if not self.memory_manager:
+                if self.logger:
+                    self.logger.debug("[MemorySearch] No memory_manager available for medium search")
+                return []
+
+            medium_entries = getattr(self.memory_manager, 'medium_memory', [])
+            if not medium_entries:
+                return []
+
+            query_embedding = self.get_embedding_vector(query)
+            if not query_embedding:
+                if self.logger:
+                    self.logger.warning("[MemorySearch] Failed to get query embedding for medium search")
+                return []
+
+            results = []
+            for entry in medium_entries:
+                if 'embedding' not in entry or not entry['embedding']:
+                    continue
+
+                similarity = self._cosine_similarity(query_embedding, entry['embedding'])
+
+                if similarity > 0.3:
+                    results.append({
+                        'role':      entry.get('role', 'unknown'),
+                        'content':   self._truncate_text(entry.get('content', ''), self._chunk_size),
+                        'timestamp': entry.get('timestamp', ''),
+                        'date':      entry.get('date', ''),
+                        'similarity': similarity
+                    })
+
+            results.sort(key=lambda x: x['similarity'], reverse=True)
+            return results[:k]
 
 
     def search_long_memory(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
-        """
-        Search long-term memory (daily summaries)
-        
-        Args:
-            query: Search query text
-            k: Number of results to return
-        
-        Returns:
-            List of matching summaries with similarity scores
-        """
-        if not self.memory_manager:
-            if self.logger:
-                self.logger.debug("[MemorySearch] No memory_manager available for long search")
-            return []
-        
-        # Get long memory summaries
-        long_entries = getattr(self.memory_manager, 'long_memory', [])
-        if not long_entries:
-            return []
-        
-        # Get query embedding
-        query_embedding = self.get_embedding_vector(query)
-        if not query_embedding:
-            if self.logger:
-                self.logger.warning("[MemorySearch] Failed to get query embedding for long search")
-            return []
-        
-        # Calculate similarities
-        results = []
-        for entry in long_entries:
-            if 'embedding' not in entry or not entry['embedding']:
-                continue
-            
-            similarity = self._cosine_similarity(query_embedding, entry['embedding'])
-            
-            if similarity > 0.3:  # Minimum threshold
-                summary = entry.get('summary', '')
-                # [Changed] Truncate summary to 1000 chars
-                truncated_summary = self._truncate_text(summary, 1000)
-                
-                results.append({
-                    'summary': truncated_summary,
-                    'date': entry.get('date', ''),
-                    'timestamp': entry.get('timestamp', ''),
-                    'entry_count': entry.get('entry_count', 0),
-                    'similarity': similarity
-                })
-        
-        # Sort by similarity and return top k
-        results.sort(key=lambda x: x['similarity'], reverse=True)
-        return results[:k]
+            if not self.memory_manager:
+                if self.logger:
+                    self.logger.debug("[MemorySearch] No memory_manager available for long search")
+                return []
+
+            long_entries = getattr(self.memory_manager, 'long_memory', [])
+            if not long_entries:
+                return []
+
+            query_embedding = self.get_embedding_vector(query)
+            if not query_embedding:
+                if self.logger:
+                    self.logger.warning("[MemorySearch] Failed to get query embedding for long search")
+                return []
+
+            results = []
+            for entry in long_entries:
+                if 'embedding' not in entry or not entry['embedding']:
+                    continue
+
+                similarity = self._cosine_similarity(query_embedding, entry['embedding'])
+
+                if similarity > 0.3:
+                    results.append({
+                        'summary':     self._truncate_text(entry.get('summary', ''), self._chunk_size),
+                        'date':        entry.get('date', ''),
+                        'timestamp':   entry.get('timestamp', ''),
+                        'entry_count': entry.get('entry_count', 0),
+                        'similarity':  similarity
+                    })
+
+            results.sort(key=lambda x: x['similarity'], reverse=True)
+            return results[:k]
 
 
     def search_base_knowledge(self, query: str, k: int = 5, min_similarity: float = 0.4) -> List[Dict[str, Any]]:
@@ -294,77 +261,71 @@ class MemorySearch:
 
 
     def get_short_memory(self) -> str:
-        """
-        Get recent short-term memory as formatted string
-        
-        Returns:
-            Formatted string of recent conversation
-        """
         if not self.memory_manager:
             return ""
-        
+
         short_entries = getattr(self.memory_manager, 'short_memory', [])
         if not short_entries:
             return ""
-        
+
         lines = []
         username = getattr(self.memory_manager, 'username', 'User')
         agentname = getattr(self.memory_manager, 'agentname', 'Agent')
-        
-        for entry in short_entries[-10:]:  # Last 10 entries
+
+        # Use max_context_entries from config if available, else full short memory
+        limit = (
+            getattr(self.config, 'max_context_entries', None)
+            or getattr(self.memory_manager, 'max_context_entries', None)
+            or len(short_entries)
+        )
+
+        for entry in short_entries[-limit:]:
             role = username if entry.get('role') == 'user' else agentname
             timestamp = entry.get('timestamp', 'Unknown time')
             content = entry.get('content', '')
-            
             lines.append(f"[{timestamp}] {role}: {content}")
-        
+
         return "\n".join(lines)
 
 
-    def get_yesterday_context(self, max_entries: int = 10) -> str:
-        """
-        Get yesterday's conversation for context
-        
-        Args:
-            max_entries: Maximum number of entries to return
-        
-        Returns:
-            Formatted string of yesterday's conversation
-        """
+    def get_yesterday_context(self, max_entries: int = None) -> str:
         if not self.memory_manager:
             return ""
-        
+
+        if max_entries is None:
+            max_entries = (
+                getattr(self.config, 'max_context_entries', None)
+                or getattr(self.memory_manager, 'max_context_entries', None)
+                or 10
+            )
+
         from datetime import datetime, timedelta
         yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-        
-        # Search both short and medium memory for yesterday's entries
+
         yesterday_entries = []
-        
         short_memory = getattr(self.memory_manager, 'short_memory', [])
         medium_memory = getattr(self.memory_manager, 'medium_memory', [])
-        
+
         for entry in short_memory + medium_memory:
             if entry.get('date') == yesterday:
                 yesterday_entries.append(entry)
-        
+
         if not yesterday_entries:
             return ""
-        
-        # Sort by timestamp and take last max_entries
+
         yesterday_entries.sort(key=lambda x: x.get('timestamp', ''))
         yesterday_entries = yesterday_entries[-max_entries:]
-        
+
         lines = []
         username = getattr(self.memory_manager, 'username', 'User')
         agentname = getattr(self.memory_manager, 'agentname', 'Agent')
-        
+
         for entry in yesterday_entries:
             role = username if entry.get('role') == 'user' else agentname
             timestamp = entry.get('timestamp', 'Unknown time')
             content = entry.get('content', '')
-            
             lines.append(f"[{timestamp}] {role}: {content}")
-        
+
         return "\n".join(lines)
 
     def get_embedding_vector(self, text: str) -> Optional[List[float]]:
@@ -601,48 +562,37 @@ class MemorySearch:
         return self._format_examples(results, stage='response')
     
     def _format_examples(self, results: List[Dict[str, Any]], stage: str = 'thought') -> str:
-        """
-        Format search results as example section for prompt injection
-        
-        Args:
-            results: List of matched chunks
-            stage: 'thought' or 'response'
-        
-        Returns:
-            Formatted examples string
-        """
-        if not results:
-            return ""
-        
-        lines = []
-        
-        for i, result in enumerate(results, 1):
-            metadata = result.get('metadata', {})
-            context = metadata.get('context', '')
-            response = metadata.get('response', '')
-            keywords = metadata.get('keywords', [])
-            similarity = result['similarity']
-            
-            # [Changed] Truncate context and response to ensure total under 1000 chars
-            context = self._truncate_text(context, 400)
-            response = self._truncate_text(response, 500)
-            
-            if stage == 'thought':
-                lines.append(f"SITUATION: {context}")
-                lines.append(f"INTERNAL COGNITION: {response}")
-            else:  # response
-                lines.append(f"SITUATION: {context}")
-                lines.append(f"RESPONSE: {response}")
-            
-            if keywords:
-                lines.append(f"KEYWORDS: {', '.join(keywords[:5])}")
-            
-            lines.append(f"(relevance: {similarity:.2f})")
-            
-            if i < len(results):
-                lines.append("")  # Blank line between examples
-        
-        return "\n".join(lines)
+            if not results:
+                return ""
+
+            ctx_limit  = max(50, int(self._chunk_size * 0.44))
+            resp_limit = max(50, int(self._chunk_size * 0.55))
+
+            lines = []
+
+            for i, result in enumerate(results, 1):
+                metadata   = result.get('metadata', {})
+                context    = self._truncate_text(metadata.get('context',  ''), ctx_limit)
+                response   = self._truncate_text(metadata.get('response', ''), resp_limit)
+                keywords   = metadata.get('keywords', [])
+                similarity = result['similarity']
+
+                if stage == 'thought':
+                    lines.append(f"SITUATION: {context}")
+                    lines.append(f"INTERNAL COGNITION: {response}")
+                else:
+                    lines.append(f"SITUATION: {context}")
+                    lines.append(f"RESPONSE: {response}")
+
+                if keywords:
+                    lines.append(f"KEYWORDS: {', '.join(keywords[:5])}")
+
+                lines.append(f"(relevance: {similarity:.2f})")
+
+                if i < len(results):
+                    lines.append("")
+
+            return "\n".join(lines)
     
     # ========================================================================
     # UNIVERSAL DELEGATION - Handles ANY method call

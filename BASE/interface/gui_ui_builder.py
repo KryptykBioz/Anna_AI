@@ -15,11 +15,11 @@ from BASE.interface.gui_info_view import InfoView
 from BASE.interface.gui_config_view import ConfigView
 from BASE.interface.gui_files_view import FilesView
 from BASE.interface.gui_themes import THEMES
-import personality.controls as controls
+import BASE.config.controls as controls
 
 
 class UIBuilder:
-    """Handles main UI creation — tabbed left notebook | persistent right chat pane"""
+    """Handles main UI creation — 2x2 grid layout"""
 
     __slots__ = ('parent', 'theme_manager', 'controls_view', 'chat_view_instance',
                  'tools_view', 'info_view', 'config_view', 'files_view', 'view_frames',
@@ -27,7 +27,7 @@ class UIBuilder:
 
     def __init__(self, parent):
         self.parent = parent
-        self.parent.root.geometry("1400x900")
+        self.parent.root.geometry("1600x1200")
         self.theme_manager = ThemeManager(self.parent)
         self.controls_view = ControlsView(self.parent)
         self.chat_view_instance = ChatView(self.parent)
@@ -60,8 +60,6 @@ class UIBuilder:
     def setup_gui(self):
         self.create_theme_bar()
         self.create_main_layout()
-        self.create_left_notebook()
-        self.create_all_views()
         self.theme_manager.apply_theme()
         self.theme_manager.enable_widget_updates()
 
@@ -92,36 +90,43 @@ class UIBuilder:
         self.theme_selector.pack(side=tk.RIGHT, padx=(0, 10), pady=4)
 
     # ------------------------------------------------------------------
-    # Main layout — horizontal split: left notebook | right chat
+    # Main layout — 2x2 grid via nested PanedWindows
+    #
+    #  ┌─────────────────┬─────────────────┐
+    #  │  Upper-Left     │  Upper-Right    │
+    #  │  Config/Ctrl/   │  System Log     │
+    #  │  Files/Info     │                 │
+    #  ├─────────────────┼─────────────────┤
+    #  │  Lower-Left     │  Lower-Right    │
+    #  │  Tools          │  Chat           │
+    #  └─────────────────┴─────────────────┘
     # ------------------------------------------------------------------
     def create_main_layout(self):
-        self.parent.main_paned = ttk.PanedWindow(self.parent.root, orient=tk.HORIZONTAL)
-        self.parent.main_paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        # Outer vertical split (top row / bottom row)
+        outer_paned = ttk.PanedWindow(self.parent.root, orient=tk.VERTICAL)
+        outer_paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        self.parent.left_frame = ttk.Frame(self.parent.main_paned, width=560)
-        self.parent.left_frame.pack_propagate(False)
-        self.parent.main_paned.add(self.parent.left_frame, weight=1)
+        # Top row — horizontal split
+        top_paned = ttk.PanedWindow(outer_paned, orient=tk.HORIZONTAL)
+        outer_paned.add(top_paned, weight=3)
 
-        self.parent.right_frame = ttk.Frame(self.parent.main_paned)
-        self.parent.main_paned.add(self.parent.right_frame, weight=2)
+        # Bottom row — horizontal split
+        bot_paned = ttk.PanedWindow(outer_paned, orient=tk.HORIZONTAL)
+        outer_paned.add(bot_paned, weight=2)
 
-        self.parent.chat_view = self.parent.right_frame
+        # ── Upper-left: tabbed notebook (Config / Controls / Files / Info) ──
+        ul_frame = ttk.Frame(top_paned)
+        top_paned.add(ul_frame, weight=1)
 
-    # ------------------------------------------------------------------
-    # Left notebook — one tab per view
-    # ------------------------------------------------------------------
-    def create_left_notebook(self):
-        self.notebook = ttk.Notebook(self.parent.left_frame)
+        self.notebook = ttk.Notebook(ul_frame)
         self.notebook.pack(fill=tk.BOTH, expand=True)
 
         tab_order = [
-            ("Config",   "config_view"),
-            ("Controls", "controls_view"),
-            ("Files",    "files_view"),
-            ("Tools",    "tools_view"),
-            ("Info",     "info_view"),
+            ("Controls",  "controls_view"),
+            ("Config",    "config_view"),
+            ("Files",     "files_view"),
+            ("Info",      "info_view"),
         ]
-
         self.tabs = {}
         for name, attr in tab_order:
             frame = ttk.Frame(self.notebook)
@@ -129,16 +134,40 @@ class UIBuilder:
             self.notebook.add(frame, text=f"  {name}  ")
             self.tabs[name] = frame
 
+        self.notebook.select(0)
+
+        # ── Upper-right: System Log ──
+        ur_frame = ttk.Frame(top_paned)
+        top_paned.add(ur_frame, weight=1)
+        # chat_view is repurposed as the system-log host frame
+        self.parent.chat_view = ur_frame
+
+        # ── Lower-left: Tools ──
+        ll_frame = ttk.Frame(bot_paned)
+        bot_paned.add(ll_frame, weight=1)
+        self.parent.tools_view = ll_frame
+
+        # ── Lower-right: Chat ──
+        lr_frame = ttk.Frame(bot_paned)
+        bot_paned.add(lr_frame, weight=1)
+        self.parent.chat_panel_frame = lr_frame
+
+        # Populate all four quadrants
+        self._create_all_views()
+
     # ------------------------------------------------------------------
     # Populate every view
     # ------------------------------------------------------------------
-    def create_all_views(self):
+    def _create_all_views(self):
         self.config_view.create_config_view()
         self.controls_view.create_controls_view()
         self.files_view.create_files_view()
-        self.tools_view.create_tools_view()
         self.info_view.create_info_view()
-        self.chat_view_instance.create_chat_view()
+        self.tools_view.create_tools_view()
+        # System log goes into upper-right (parent.chat_view)
+        self.chat_view_instance.create_system_panel(self.parent.chat_view)
+        # Chat panel goes into lower-right (parent.chat_panel_frame)
+        self.chat_view_instance.create_chat_panel(self.parent.chat_panel_frame)
 
     # ------------------------------------------------------------------
     # Theme change
@@ -159,7 +188,6 @@ class UIBuilder:
     # Legacy stubs — kept so external callers don't break
     # ------------------------------------------------------------------
     def switch_view(self, view_name: str):
-        """Select the matching notebook tab if it exists."""
         if not self.notebook:
             return
         for idx, tab_id in enumerate(self.notebook.tabs()):
@@ -168,7 +196,6 @@ class UIBuilder:
                 break
 
     def update_tab_styles(self):
-        """No-op — ttk.Notebook handles its own tab highlighting."""
         pass
 
     # ------------------------------------------------------------------

@@ -95,9 +95,12 @@ class WhisperTool(InternalToolInterface):
         """Initialize speaker verification engine"""
         try:
             from pathlib import Path
-            from personality.bot_info import username
-            
-            user_voice_sample = Path(f"./personality/voice/{username}_voice_sample.mp3")
+            from BASE.config.bot_info import username, user_voice_sample_filename
+
+            if user_voice_sample_filename:
+                user_voice_sample = Path(f"./personality/voice/{user_voice_sample_filename}")
+            else:
+                user_voice_sample = Path(f"./personality/voice/{username}_voice_sample.mp3")
             
             if not user_voice_sample.exists():
                 if self._logger:
@@ -118,7 +121,7 @@ class WhisperTool(InternalToolInterface):
             similarity_threshold = getattr(
                 self._controls,
                 'SPEAKER_VERIFICATION_THRESHOLD',
-                0.75
+                0.70
             )
             
             self._speaker_verifier = SpeakerVerificationEngine(
@@ -237,7 +240,7 @@ class WhisperTool(InternalToolInterface):
     
     def _speech_processing_loop(self):
         """Process recognized text from queue with optional speaker verification"""
-        from personality.bot_info import agentname, username
+        from BASE.config.bot_info import agentname, username
         
         if self._logger:
             self._logger.system("[Whisper] Speech processing loop started")

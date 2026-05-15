@@ -10,7 +10,7 @@ import threading
 import asyncio
 from pathlib import Path
 from typing import Optional
-from personality.bot_info import agentname, username
+from BASE.config.bot_info import agentname, username
 from BASE.core.logger import MessageType
 
 
@@ -69,18 +69,18 @@ class MessageProcessor:
                     response = response.strip()
                     
                     if response:  # Verify not empty after stripping
-                        # Log for debugging
-                        self.logger.system(f"[Queue] Adding response: {response[:60]}...")
+                        # # Log for debugging
+                        # self.logger.system(f"[Queue] Adding response: {response[:60]}...")
                         
                         # Queue for GUI display
                         self.message_queue.put(("agent", self.agentname, response))
                         
                         # Handle TTS if enabled
-                        import personality.controls as controls
+                        import BASE.config.controls as controls
                         if controls.AVATAR_SPEECH and len(response) < 1000:
                             self._play_tts(response)
-                    else:
-                        self.logger.warning("[Queue] Response empty after stripping")
+                    # else:
+                    #     self.logger.warning("[Queue] Response empty after stripping")
                 # else:
                     # No response generated
                     # if not is_auto_prompt:

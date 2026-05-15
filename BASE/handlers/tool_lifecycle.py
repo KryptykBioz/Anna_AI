@@ -133,8 +133,6 @@ class ToolLifecycleManager:
                     continue
                 
                 description = info.get('tool_description', 'No description')
-                if len(description) > 100:
-                    description = description[:97] + "..."
                 
                 # CRITICAL FIX: Store with CORRECT key name
                 discovered[tool_name] = {
@@ -221,10 +219,10 @@ class ToolLifecycleManager:
                 basic_meta['full_metadata'] = full_meta
                 basic_meta['full_metadata_loaded'] = True
                 
-                if self.logger:
-                    self.logger.system(
-                        f"[Lazy Load] Loaded full metadata for {tool_name}"
-                    )
+                # if self.logger:
+                #     self.logger.system(
+                #         f"[Lazy Load] Loaded full metadata for {tool_name}"
+                #     )
                 
                 return full_meta
             else:
@@ -302,40 +300,43 @@ class ToolLifecycleManager:
         """Dynamically load BaseTool class from tool.py"""
         try:
             module_name = f"tool_{tool_name}"
-            
+
+            # Evict stale cached module so reimport picks up any file changes
+            sys.modules.pop(module_name, None)
+
             spec = importlib.util.spec_from_file_location(
                 module_name, str(tool_file)
             )
-            
+
             if spec is None or spec.loader is None:
                 if self.logger:
                     self.logger.error(
                         f"[Tool Loading] Cannot create spec for {tool_file}"
                     )
                 return None
-            
+
             module = importlib.util.module_from_spec(spec)
             sys.modules[module_name] = module
             spec.loader.exec_module(module)
-            
+
             found_classes = []
             for attr_name in dir(module):
                 if not attr_name.endswith('Tool'):
                     continue
                 if attr_name == 'BaseTool' or attr_name.startswith('Base'):
                     continue
-                
+
                 tool_class = getattr(module, attr_name)
                 if isinstance(tool_class, type):
                     found_classes.append((attr_name, tool_class))
-            
+
             if not found_classes:
                 if self.logger:
                     self.logger.error(
                         f"[Tool Loading] No tool class found in {tool_file}"
                     )
                 return None
-            
+
             if len(found_classes) > 1:
                 if self.logger:
                     names = [c[0] for c in found_classes]
@@ -343,9 +344,9 @@ class ToolLifecycleManager:
                         f"[Tool Loading] Multiple tool classes in {tool_file}: {names}, "
                         f"using {found_classes[0][0]}"
                     )
-            
+
             return found_classes[0][1]
-        
+
         except Exception as e:
             if self.logger:
                 self.logger.error(
@@ -354,6 +355,18 @@ class ToolLifecycleManager:
             import traceback
             traceback.print_exc()
             return None
+        
+    def refresh_tool_discovery(self) -> Dict[str, Dict]:
+        """
+        Re-scan tools directory and rebuild metadata, clearing stale cache entries.
+        Safe to call on running systems — does not stop active tools.
+        
+        Returns:
+            Newly discovered metadata dict
+        """
+        self.clear_json_cache()
+        self._tool_metadata.clear()
+        return self.discover_tools()
     
     # ========================================================================
     # TOOL LIFECYCLE
@@ -438,34 +451,28 @@ class ToolLifecycleManager:
                 return False
     
     async def stop_tool(self, tool_name: str) -> bool:
-        """Stop a BaseTool by calling its end() method"""
         tool_instance = self._active_tools.get(tool_name)
-        
+
         if not tool_instance:
             if self.logger:
-                self.logger.system(
-                    f"[Tool Lifecycle] {tool_name} not running"
-                )
+                self.logger.system(f"[Tool Lifecycle] {tool_name} not running")
             return False
-        
+
         try:
             await tool_instance.end()
-            
-            del self._active_tools[tool_name]
-            
-            if self.logger:
-                self.logger.system(
-                    f"[Tool Lifecycle] Stopped {tool_name}"
-                )
-            
-            return True
-        
         except Exception as e:
             if self.logger:
-                self.logger.error(
-                    f"[Tool Lifecycle] Error stopping {tool_name}: {e}"
-                )
+                self.logger.error(f"[Tool Lifecycle] Error stopping {tool_name}: {e}")
             return False
+        finally:
+            # Always evict from active tools regardless of end() outcome,
+            # since the tool may have partially cleaned up or already removed itself
+            self._active_tools.pop(tool_name, None)
+
+        if self.logger:
+            self.logger.system(f"[Tool Lifecycle] Stopped {tool_name}")
+
+        return True
     
     async def cleanup_all_tools(self):
         """Cleanup all active tools"""

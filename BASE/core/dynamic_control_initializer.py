@@ -417,14 +417,14 @@ def initialize_dynamic_controls(project_root: Path, controls_module, logger=None
     Usage in main.py or gui startup:
         from BASE.core.dynamic_control_initializer import initialize_dynamic_controls
         from pathlib import Path
-        import personality.controls as controls
+        import BASE.config.controls as controls
         
         project_root = Path(__file__).parent
         initialize_dynamic_controls(project_root, controls, logger)
     
     Args:
         project_root: Path to project root directory
-        controls_module: personality.controls module
+        controls_module: BASE.config.controls module
         logger: Optional logger instance
     
     Returns:

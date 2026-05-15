@@ -1,4 +1,4 @@
-# Filename: BASE/memory/memory_manager.py
+# Filename: BASE/recall/memory_manager.py
 """
 Four-Tier Memory System for AI Agent
 Refactored for centralized architecture with dependency injection
@@ -30,7 +30,7 @@ from BASE.recall.memory_encryption import (
     setup_or_unlock,
 )
 
-from personality.controls import KILL_COMMAND
+from BASE.config.controls import KILL_COMMAND
 
 class MemoryManager:
     """Four-tier memory manager with dependency injection and encrypted persistence"""
@@ -46,60 +46,89 @@ class MemoryManager:
     )
     
     def __init__(
-        self, 
+        self,
         config,
         controls_module,
         logger: Logger,
-        project_root: Path,
-        short_memory_limit: int = 25,
-        max_context_entries: int = 50
+        project_root: Path
     ):
-        # Injected dependencies
         self.config = config
         self.controls = controls_module
         self.logger = logger
         self.project_root = project_root
-        
-        # Configuration from config object
+
         self.ollama_endpoint = config.ollama_endpoint
         self.embed_model = config.embed_model
         self.agentname = config.agentname
         self.username = config.username
-        
-        # Memory limits
-        self.short_memory_limit = short_memory_limit
-        self.max_context_entries = max_context_entries
-        
-        # Memory file paths
+
+        self.short_memory_limit = config.memory_length
+        self.max_context_entries = config.max_context_entries
+
         self.memory_dir = project_root / "personality" / "memory"
         self.short_memory_file = self.memory_dir / "short_memory.json"
         self.medium_memory_file = self.memory_dir / "medium_memory.json"
         self.long_memory_file = self.memory_dir / "long_memory.json"
-        
-        # Memory storage
+
         self.short_memory: List[Dict[str, Any]] = []
         self.medium_memory: List[Dict[str, Any]] = []
         self.long_memory: List[Dict[str, Any]] = []
         self.base_knowledge: List[Dict[str, Any]] = []
-        
-        # Interaction tracking
+
         self.interaction_count = 0
         self.last_summarization_count = 0
         self.current_date = datetime.now().strftime('%Y-%m-%d')
-        
-        # Encryption key — derived from password at startup, held in memory only
-        self.encryption_key = None
-        
-        # Unlock memory encryption before any file I/O
-        self._unlock_memory()
-        
-        # Initialize memory system
+
+        self.encryption_key = None  # set by _unlock_memory or _init_no_encryption
+
+        self._init_encryption()
         self._init_embeddings()
         self._load_all_memory()
-        
-        # Log initialization complete
+
         self.logger.memory("[SUCCESS] Memory Manager initialized")
     
+    def _init_encryption(self):
+        """
+        Initialize encryption key.
+        If USE_MEMORY_ENCRYPTION is True in controls, prompt for password.
+        Otherwise derive a fixed machine-local key so the file format is
+        identical but no password is required at startup.
+        """
+        use_encryption = getattr(self.controls, 'USE_MEMORY_ENCRYPTION', False)
+
+        if use_encryption:
+            self._unlock_memory()
+            return
+
+        # No-password path: derive a stable key from a machine-local secret.
+        # The secret is auto-generated once and stored as a plaintext hex file.
+        # This keeps the AES-GCM file format intact (tamper-evident, crash-safe)
+        # without requiring user interaction on every start.
+        from BASE.recall.memory_encryption import _derive_key, _SALT_LEN
+        import secrets as _secrets
+
+        secret_file = self.memory_dir / '.machine_secret'
+        self.memory_dir.mkdir(parents=True, exist_ok=True)
+
+        if secret_file.exists():
+            secret_hex = secret_file.read_text(encoding='utf-8').strip()
+            secret = bytes.fromhex(secret_hex)
+        else:
+            secret = _secrets.token_bytes(32)
+            secret_file.write_text(secret.hex(), encoding='utf-8')
+            self.logger.memory("[Encryption] Generated new machine-local secret")
+
+        # Use a fixed salt stored alongside the secret so the key is stable
+        salt_file = self.memory_dir / '.machine_salt'
+        if salt_file.exists():
+            salt = bytes.fromhex(salt_file.read_text(encoding='utf-8').strip())
+        else:
+            salt = _secrets.token_bytes(_SALT_LEN)
+            salt_file.write_text(salt.hex(), encoding='utf-8')
+
+        self.encryption_key = _derive_key(secret.hex(), salt)
+        self.logger.memory("[Encryption] Machine-local key derived (no password required)")
+
     # ========================================================================
     # INITIALIZATION
     # ========================================================================
@@ -157,7 +186,7 @@ class MemoryManager:
     # ========================================================================
     
     def _load_short_memory(self):
-        """Load Tier 1: Short memory (decrypt with .bak fallback)"""
+        """Load Tier 1: Short memory"""
         try:
             plaintext = load_encrypted_with_fallback(
                 self.short_memory_file, self.encryption_key
@@ -166,10 +195,12 @@ class MemoryManager:
                 self.short_memory = []
                 self._save_short_memory()
                 return
+
             self.short_memory = json.loads(plaintext.decode('utf-8'))
-            self.logger.memory(
-                f"[Tier 1] Loaded {len(self.short_memory)} short memory entries"
-            )
+            # self.logger.memory(
+            #     f"[Tier 1] Loaded {len(self.short_memory)} short memory entries "
+            #     f"(limit: {self.short_memory_limit})"
+            # )
         except Exception as e:
             self.logger.error(f"[Tier 1] Load failed: {e}")
             self.short_memory = []
@@ -198,7 +229,7 @@ class MemoryManager:
                 oldest_entry['embedding'] = embedding
                 oldest_entry['date'] = self.current_date
                 self.medium_memory.append(oldest_entry)
-                self.logger.memory("Moved entry to medium memory (embedded)")
+                # self.logger.memory("Moved entry to medium memory (embedded)")
             else:
                 self.logger.error("Failed to embed entry, discarding")
         
@@ -244,9 +275,9 @@ class MemoryManager:
                 )
                 self._save_medium_memory()
 
-            self.logger.memory(
-                f"[Tier 2] Loaded {len(self.medium_memory)} medium memory entries"
-            )
+            # self.logger.memory(
+            #     f"[Tier 2] Loaded {len(self.medium_memory)} medium memory entries"
+            # )
         except Exception as e:
             self.logger.error(f"[Tier 2] Load failed: {e}")
             self.medium_memory = []
@@ -301,9 +332,9 @@ class MemoryManager:
                 )
                 self._save_long_memory()
 
-            self.logger.memory(
-                f"[Tier 3] Loaded {len(self.long_memory)} long memory summaries"
-            )
+            # self.logger.memory(
+            #     f"[Tier 3] Loaded {len(self.long_memory)} long memory summaries"
+            # )
         except Exception as e:
             self.logger.error(f"[Tier 3] Load failed: {e}")
             self.long_memory = []
@@ -371,8 +402,8 @@ class MemoryManager:
                 except Exception as e:
                     self.logger.error(f"[Tier 4] Failed to load {json_file.name}: {e}")
             
-            self.logger.success(f"[Tier 4] Total: {total_loaded} chunks from {len(json_files)} files")
-            self.logger.memory(f"[Tier 4] Breakdown: {personality_count} personality, {document_count} document")
+            # self.logger.success(f"[Tier 4] Total: {total_loaded} chunks from {len(json_files)} files")
+            # self.logger.memory(f"[Tier 4] Breakdown: {personality_count} personality, {document_count} document")
             
         except Exception as e:
             self.logger.error(f"[Tier 4] Base memory load failed: {e}")
@@ -477,10 +508,10 @@ class MemoryManager:
         self._save_short_memory()
         
         # Log if enabled
-        self.logger.memory(
-            f"Saved user message (Short: {len(self.short_memory)}, "
-            f"Medium: {len(self.medium_memory)})"
-        )
+        # self.logger.memory(
+        #     f"Saved user message (Short: {len(self.short_memory)}, "
+        #     f"Medium: {len(self.medium_memory)})"
+        # )
         
         # Return entry for GUI display
         return user_entry
@@ -523,10 +554,10 @@ class MemoryManager:
         self.interaction_count += 1
         
         # Log if enabled
-        self.logger.memory(
-            f"Saved bot response (Short: {len(self.short_memory)}, "
-            f"Medium: {len(self.medium_memory)})"
-        )
+        # self.logger.memory(
+        #     f"Saved bot response (Short: {len(self.short_memory)}, "
+        #     f"Medium: {len(self.medium_memory)})"
+        # )
         
         # Return entry for GUI display
         return bot_entry
@@ -540,7 +571,7 @@ class MemoryManager:
         yesterday = (current_date - timedelta(days=1)).strftime('%Y-%m-%d')
         current_date_str = current_date.strftime('%Y-%m-%d')
         
-        self.logger.memory(f"Checking for entries to archive (today: {current_date_str}, yesterday: {yesterday})")
+        # self.logger.memory(f"Checking for entries to archive (today: {current_date_str}, yesterday: {yesterday})")
         
         # Collect dates from all active memory
         dates = set()
@@ -560,7 +591,7 @@ class MemoryManager:
                     1 for e in self.short_memory + self.medium_memory 
                     if e.get('date') == d
                 )
-                self.logger.memory(f"Keeping {yesterday_entries} entries from yesterday ({d}) in full detail")
+                # self.logger.memory(f"Keeping {yesterday_entries} entries from yesterday ({d}) in full detail")
             else:
                 dates_to_summarize.append(d)
         

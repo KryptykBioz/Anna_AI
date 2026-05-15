@@ -32,16 +32,16 @@ class ToolInstructionBuilder:
         """Build minimal tool list for cognitive modes"""
         enabled_tools = self.tool_manager.get_enabled_tool_names()
         
-        if not enabled_tools:
-            if self.logger:
-                self.logger.warning("[Tool Builder] No enabled tools")
-            return ""
+        # if not enabled_tools:
+        #     if self.logger:
+        #         self.logger.warning("[Tool Builder] No enabled tools")
+        #     return ""
         
-        if self.logger:
-            self.logger.system(
-                f"[Tool Builder] Building list for {len(enabled_tools)} enabled tool(s): "
-                f"{', '.join(enabled_tools)}"
-            )
+        # if self.logger:
+        #     self.logger.system(
+        #         f"[Tool Builder] Building list for {len(enabled_tools)} enabled tool(s): "
+        #         f"{', '.join(enabled_tools)}"
+        #     )
         
         lines = ["\n## AVAILABLE TOOLS"]
         lines.append("You can use these tools by including them in <actions> tags:")
@@ -67,9 +67,9 @@ class ToolInstructionBuilder:
         
         if found_count == 0:
             if self.logger:
-                self.logger.error(
-                    "[Tool Builder] CRITICAL: Enabled tools found but NO metadata retrieved!"
-                )
+                # self.logger.error(
+                #     "[Tool Builder] CRITICAL: Enabled tools found but NO metadata retrieved!"
+                # )
                 self.logger.error(
                     f"[Tool Builder] Enabled: {enabled_tools}"
                 )
@@ -80,10 +80,10 @@ class ToolInstructionBuilder:
         
         result = "\n".join(lines)
         
-        if self.logger:
-            self.logger.success(
-                f"[Tool Builder] Built tool list with {found_count}/{len(enabled_tools)} tool(s)"
-            )
+        # if self.logger:
+        #     self.logger.success(
+        #         f"[Tool Builder] Built tool list with {found_count}/{len(enabled_tools)} tool(s)"
+        #     )
         
         return result
     
@@ -92,31 +92,18 @@ class ToolInstructionBuilder:
     # ========================================================================
     
     def build_retrieved_tool_instructions(self, tool_names: List[str]) -> str:
-        """
-        Build COMPLETE detailed instructions for action mode
-        
-        Extracts ALL fields from information.json:
-        - Available commands with args
-        - Usage examples (all of them)
-        - Format specifications
-        - Usage guidance
-        - Proactive triggers
-        - Technical details
-        
-        Args:
-            tool_names: List of base tool names (e.g., ["sound", "calculator"])
-        
-        Returns:
-            Complete documentation for action mode
-        """
         if not tool_names:
             return ""
         
         sections = ["\n## RETRIEVED TOOL INSTRUCTIONS"]
         sections.append("\nComplete documentation for tools being executed:\n")
+        sections.append(
+            "[Warning] COMMAND NAMES ARE EXACT. Only use commands listed below. "
+            "Do NOT invent commands (e.g. 'evaluate', 'run', 'exec'). "
+            "Any unlisted command will fail with 'Unknown command'.\n"
+        )
         
         for tool_name in tool_names:
-            # Get metadata for this tool
             metadata = self.tool_manager.get_tool_metadata(tool_name)
             if not metadata:
                 continue
@@ -128,31 +115,25 @@ class ToolInstructionBuilder:
         
         return "\n".join(sections)
     
-    def _build_complete_tool_documentation(
-        self,
-        tool_name: str,
-        metadata: Dict
-    ) -> str:
-        """
-        Build COMPLETE documentation from information.json metadata
-        
-        Extracts every field needed for action mode to construct proper calls
-        """
+    def _build_complete_tool_documentation(self, tool_name: str, metadata: Dict) -> str:
         parts = []
         
-        # ====================================================================
-        # HEADER
-        # ====================================================================
         parts.append(f"### {tool_name.upper()}")
         
         description = metadata.get('tool_description', 'No description available')
         parts.append(f"**Description:** {description}\n")
         
-        # ====================================================================
-        # AVAILABLE COMMANDS - CRITICAL FOR ACTION MODE
-        # ====================================================================
         commands = metadata.get('available_commands', [])
         if commands:
+            valid_command_names = [
+                f"{tool_name}.{cmd.get('command', '')}" for cmd in commands
+            ]
+            parts.append(
+                f"[Confirmed] VALID COMMANDS FOR THIS TOOL: {', '.join(valid_command_names)}"
+            )
+            parts.append(
+                f"[Warning] Using any other command name will fail. Use ONLY the above.\n"
+            )
             parts.append("**Available Commands:**\n")
             
             for cmd in commands:
@@ -161,29 +142,22 @@ class ToolInstructionBuilder:
                 cmd_desc = cmd.get('description', '')
                 cmd_format = cmd.get('format', '')
                 
-                # Command header: sound.play
                 parts.append(f"**{tool_name}.{cmd_name}**")
                 
-                # Arguments
                 if cmd_args:
                     args_formatted = ", ".join(cmd_args)
                     parts.append(f"  - Arguments: {args_formatted}")
                 else:
                     parts.append("  - Arguments: None")
                 
-                # Description
                 if cmd_desc:
                     parts.append(f"  - Description: {cmd_desc}")
                 
-                # Format example (CRITICAL for action mode)
                 if cmd_format:
                     parts.append(f"  - Format: `{cmd_format}`")
                 
-                parts.append("")  # Blank line between commands
+                parts.append("")
         
-        # ====================================================================
-        # USAGE EXAMPLES - ALL OF THEM
-        # ====================================================================
         examples = metadata.get('tool_usage_examples', [])
         if examples:
             parts.append("**Usage Examples:**")
@@ -191,9 +165,6 @@ class ToolInstructionBuilder:
                 parts.append(f"  - {example}")
             parts.append("")
         
-        # ====================================================================
-        # USAGE GUIDANCE
-        # ====================================================================
         guidance = metadata.get('tool_usage_guidance', [])
         if guidance:
             parts.append("**Usage Guidance:**")
@@ -201,9 +172,6 @@ class ToolInstructionBuilder:
                 parts.append(f"  - {guide}")
             parts.append("")
         
-        # ====================================================================
-        # PROACTIVE TRIGGERS (when to use this tool)
-        # ====================================================================
         triggers = metadata.get('proactive_triggers', [])
         if triggers:
             parts.append("**When to Use:**")
@@ -211,20 +179,13 @@ class ToolInstructionBuilder:
                 parts.append(f"  - {trigger}")
             parts.append("")
         
-        # ====================================================================
-        # TECHNICAL DETAILS
-        # ====================================================================
         tech_parts = []
-        
         if 'timeout_seconds' in metadata:
             tech_parts.append(f"Timeout: {metadata['timeout_seconds']}s")
-        
         if 'cooldown_seconds' in metadata:
             tech_parts.append(f"Cooldown: {metadata['cooldown_seconds']}s")
-        
         if 'max_retries' in metadata:
             tech_parts.append(f"Max Retries: {metadata['max_retries']}")
-        
         if tech_parts:
             parts.append(f"**Technical Details:** {' | '.join(tech_parts)}")
         

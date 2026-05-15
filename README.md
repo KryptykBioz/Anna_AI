@@ -8,21 +8,30 @@ This is a sophisticated agentic AI system built on Ollama that implements a two-
 - Persistent memory similar to a human's that can recall a day's events even after years have passed.
 - Agent's cognition runs continuously, with or without input and decides when to speak
 - Interact with either text or voice
-- Modular tools can be added or removed without modifying the agent, simply drop the new tool directory in or remove an existing one
+- Modular tools can be added or removed dynamically without modifying the agent's core; simply drop the new tool directory in or remove an existing one
 - Flexible architecture can run on many types of devices and hardware configurations with little modification (mobile version runs on smartphone/tablet)
 - Memory can persist between devices using a private GitHub repo to sync agent memory
-- Content filters replace profanity or undesired words with [FILTERED], but do not block the rest of the content
-- Universal kill command key phrase (immediately shuts down entire system when it finds this phrase in ANY source of incoming data)
+- Optional content filters replace profanity or undesired words with [FILTERED], but do not block the rest of the content. These filters may be enabled or disabled by toggle.
 - Uncensored agent when using an uncensored LLM for the spoken response mode (still retains all functionality, only affects spoken responses); recommended: llama2-uncensored:7b-chat-q4_K_M
+- Universal kill command key phrase (immediately shuts down entire system when it finds this phrase in ANY source of incoming data)
+- Live updated code base with hot reloaded core and tools
+- Reference document uploads
+- Custom lightweight Tkinter GUI with toggle controls, tool panels, system log display, and chat display
+- AI Panel of judges that automatically make optimizations to prompts and live-update the agent's prompting system
+- Instructions included for creating custom Pytorch and Pyaudio wheel builds for 50-series GPU (Blackwell sm_120)
+- Many optional tools including but not limited to: **Bing Search, Calculator, Calendar, Drawing Canvas, VS Code Extension, Dice Roller, Discord chat, DuckDuckGo Search, Game Guides, Screen Vision, Group Chat (other AI agents), Image Generator, Game Integrations (Minecraft, League of Legends, etc.), MCP Bridge, Memory Search, Notes, Reminders, Sound Effects, System Info, Twitch Livestream Chat, Unity Animator, User Details, Warudo Animator, Wikipedia Search, YouTube Livestream Chat**
+
 
 **Example of use:**
 The agent's avatar lives in the corner of the screen while the user is gaming, coding, or doing other tasks. When left alone, the agent may occasionally speak to see if anyone is listening or run background tasks like researching topics related to interactions with the user. When engaged, the agent observes what is happening on the screen and uses any available tool results to form thoughts and responses to the users. When tools are installed and enabled (internet search, file uploads, coding tool, reminders, calendar, etc.) the agent automatically uses these however and whenever it decides to. The user has complete control over these features and may toggle individual tools, agent voice, voice input, background processing, memory retention, and content filters at any time. The user may toggle these features, modify agent prompts, limit the agent's processing speed, adjust the agent's voice volume, and edit the system files all while the agent runs without having to restart the agent and the system updates automatically.
 
-**Important note:** This agent learns and becomes better over time as it retains memories of interactions with the user. On first uses, the agent will have all functionality, but its true use and behavior emerges after a while interacting with the user; recalling relationships, important events, and others it has interacted with over time and setting reminders and making plans for the future.
+**Important note:** This agent learns and becomes better over time as it retains memories of interactions with the user and populates tools with data from interactions. On first uses, the agent will have all functionality, but its true use and behavior emerges after a while interacting with the user; recalling relationships, important events, others (humans or other AI agents) it has interacted with over time, setting reminders, recording preferences and interests, and making plans for the future.
 
 **This system was created by @KryptykBioz**
 
 **Anna_AI was created as an open-source, free-to-use agentic system for personal use only.**
+
+**The Documentation directory in the Anna_AI/ root directory contains setup guides and other documentation for this system.**
 
 **Other projects and information can be found here:**
 - Github: [KryptykBioz](https://github.com/KryptykBioz)
@@ -36,7 +45,7 @@ The agent's avatar lives in the corner of the screen while the user is gaming, c
 ## Table of Contents
 
 ### Usage Notes
-1. [General Instructions](#usage-guide)
+1. [General Instructions](#usage-notes)
 
 ### Core Systems
 2. [Core Processing Architecture](#core-processing-architecture)
@@ -64,7 +73,7 @@ The agent's avatar lives in the corner of the screen while the user is gaming, c
 
 - **Starting the Agent**: Read the SETUP.md file in the project root for installation and setup instructions
 - **Tools**: All optional tools for this agent are stored in a separate repository and may be downloaded from https://github.com/KryptykBioz/AI_Agent_Tools
-- **Personalizing Your Agent**: Modify the personality and controls of your agent in the following files: bot_info.py, config.json, controls.py, personality_prompt_parts.py
+- **Personalizing Your Agent**: All agent identity, model assignments, and runtime control flags are configured in `personality/config.json`. This is the single source of truth. `bot_info.py` and `controls.py` are read-only shims that load from `config.json` at startup — do not edit them directly. To change agent name, models, memory settings, logging flags, or any control variable, edit the relevant section in `config.json`. To customize the agent's personality text and prompt content, edit `personality_prompt_parts.py`.
 - **Personalizing the system behavior**: If you are more familiar with prompting or would just like to experiment with your agent's behavior, the prompts are constructed of modular prompt parts stored in separate mode directories in the BASE/core directory. Each different mode of this system has its own _parts file and constructor, so modes may be modified without affecting the others.
 - **Updating**: As the agent is personalized exclusively in the personality/ directory and this is where all of your agents memories are stored, simply replace the BASE/ directory when updating to newer released versions. The personality/ directory of the project is only modified when absolutely necessary to avoid breaking changes. When updates are made to the project's personality/ directory, either compare to the old and transfer the changes over or reimplement your old files back in. This ensures your agent's memories and configuration remain intact and are not overwritten.
 - **Important!!!**: If you are unfamiliar with programming or Python in general, only modify the files in the Personality/ directory. Always remember to back up your files to be able to revert back easily!
@@ -92,7 +101,7 @@ The architecture separates **thinking** (internal cognitive processing) from **s
 
 ## Processing Flow
 
-<img src="./documentation/flowcharts/cognitive_loop.png" alt="Cognitive Loop Flowchart" style="width: 100%; height: auto;">
+### <a href="./documentation/CognitiveProcessingLoop.html">Processing Flow Charts (Click here)</a>
 
 ## Component Responsibilities
 
@@ -469,6 +478,14 @@ The memory system implements a four-tier architecture for managing conversationa
 | **3. Long-Term** | Past days/weeks | Daily conversation summaries with embeddings | Semantic similarity search across summaries | Historical context and patterns |
 | **4. Base Knowledge** | Permanent reference material | Static documents chunked and embedded | Semantic search with domain filtering | Instructions, guides, personality examples |
 
+## Encrypted Memory Storage
+
+Tiers 1–3 are encrypted at rest using AES-256-GCM via the `cryptography` package. Each encrypted file is prefixed with a 4-byte magic marker (`AMEM`), a version byte, a 16-byte Scrypt-derived salt, and a 12-byte GCM nonce, followed by ciphertext and a 16-byte authentication tag. Writes are atomic: the new file is written to a temp path then renamed with `os.replace()`, and a `.bak` copy is kept for one-deep rollback. On startup, any interrupted writes from a previous crash are detected and completed automatically.
+
+When `USE_MEMORY_ENCRYPTION` is disabled in `config.json`, the system uses a machine-local key derived from a randomly generated secret stored as a hex file at `personality/memory/.machine_secret`. The AES-GCM format is always used regardless of this setting, so storage is always tamper-evident and crash-safe.
+
+[Warning] Do not delete `personality/memory/.machine_secret` unless you also delete all encrypted memory files. If the secret is lost, all Tier 1–3 memory files become permanently unreadable.
+
 ## Enhanced Memory Retrieval
 
 The system uses combined query embedding for memory search:
@@ -709,6 +726,8 @@ The GUI serves as both a control center for system configuration and a live wind
 
 ## Design Philosophy
 
+**2x2 Grid Layout**: The main window is divided into four quadrants via nested PanedWindows. Upper-left holds the tabbed configuration and control panels; upper-right holds the system log; lower-left holds the tools panel; lower-right holds the chat interface.
+
 **Modular View Architecture**: Each major interface section (Chat, Controls, Tools, Config, Info) is implemented as an independent view component, enabling focused development and easy maintenance.
 
 **Theme System**: Comprehensive theming support with Light, Dark, and Cyberpunk themes that apply consistently across all interface elements through a centralized theme manager.
@@ -723,360 +742,300 @@ The GUI serves as both a control center for system configuration and a live wind
 
 ## GUI Architecture
 
-<img src="./documentation/flowcharts/gui_architecture.png" alt="GUI Architecture" style="width: 100%; height: auto;">
+```
+┌─────────────────────┬─────────────────────┐
+│  Upper-Left         │  Upper-Right        │
+│  Notebook           │  System Log         │
+│  (Controls / Config │                     │
+│   Files / Info)     │                     │
+├─────────────────────┼─────────────────────┤
+│  Lower-Left         │  Lower-Right        │
+│  Tools Panel        │  Chat Panel         │
+└─────────────────────┴─────────────────────┘
+```
+
+The four quadrants are separated by draggable sash dividers (ttk.PanedWindow), letting the user resize any quadrant at runtime. The outer PanedWindow splits top and bottom rows vertically; each row uses a separate horizontal PanedWindow for its two cells.
+
+## Layout Quadrants
+
+### Upper-Left — Tabbed Notebook
+
+A ttk.Notebook hosts four tabs:
+
+**Controls** — Runtime feature toggles and prompt addendum inputs (see ControlsView).
+
+**Config** — Dynamic configuration editor for all system settings (see ConfigView).
+
+**Files** — Session file manager for temporary reference documents (see FilesView).
+
+**Info** — README.md rendered with basic markdown formatting (see InfoView).
+
+### Upper-Right — System Log
+
+All internal processing output is written here in real-time, color-coded by message type. The log is automatically trimmed to 6000 lines to prevent memory growth. Each entry is prefixed with a timestamp.
+
+### Lower-Left — Tools Panel
+
+Dynamically discovered tool panels with a vertical sidebar for navigation. Each installed tool that provides a `component.py` gets its own page (see ToolsView).
+
+### Lower-Right — Chat Panel
+
+Conversational interface showing the exchange between the user and agent, plus an input area with Send and Stop buttons (see ChatView).
 
 ## View Components
 
 ### ConfigView
 
-**Purpose**: System configuration management and status display
+**Purpose**: System configuration management across all config files.
 
 **Features**:
-- Model configuration (text model, thinking model, embedding model)
-- Agent identity settings (name, username)
-- System information display
-- Configuration validation
-- Settings export functionality
+- Two-column scrollable layout for dense configuration display
+- Sections for bot identity, model assignment, Ollama API parameters, memory settings, feature flags, performance tuning, volume, logging, cognitive loop, rate limiting, and integrations
+- Hot-reload: Apply button pushes changes directly into live Python modules without restart
+- Save: Writes changes back to `config.json`, `bot_info.py`, and `controls.py` with automatic `.bak` backup
+- Full-width personality editor at the bottom: loads the prompt template from `personality_prompt_parts.py`, allows editing, and can hot-reload into the live module or save to disk
+- Inline tooltips on all input labels
 
 **Layout**:
-- Left panel: Model selection and configuration
-- Right panel: Agent identity and system info
-- Header: Quick access to validation and export
-
-**Integration**:
-- Reads from Config singleton
-- Updates apply immediately to ai_core
-- Displays current memory statistics
-- Shows enabled tools count
+- Header bar: title, hot-reload status indicator, Reload / Apply / Save buttons
+- Scrollable two-column grid: left column holds identity, models, memory, features, performance, rate limiting; right column holds Ollama API, volume, logging, cognitive, integrations
+- Full-width personality editor below both columns
 
 ### ControlsView
 
-**Purpose**: Runtime control of system features and integrations
+**Purpose**: Runtime control of system features and prompt addenda.
 
 **Features**:
-- Control panel with feature toggles
-- Voice/TTS configuration
-- External integration management (Discord, Twitch, YouTube)
-- Real-time feature enable/disable
-- Status indicators for active services
+- Left panel: scrollable control panel with categorized feature toggles (AI Behavior, Rate Limiting, Memory, Filters, Debug/Logging, internal tool services, external tools)
+- Right panel: auxiliary panels for prompt addenda, voice configuration, and external integration status
 
-**Layout**:
-- Left panel: Main control toggles (wider, fixed width)
-- Right panel: Auxiliary controls (voice, integrations, stats)
+**Prompt Addendum Panels** (new):
+- **Current Context**: Optional free-text appended to all cognitive prompts during the session. Useful for injecting situational context (e.g. "User is currently playing a game"). Save & Apply writes to `config.current_context` immediately; Clear removes it.
+- **Important Reminders**: Optional free-text appended after current context. Intended for persistent behavioral reminders. Same Save & Apply / Clear controls.
 
 **Control Panel Categories**:
-- **Core Features**: Memory, cognitive loop, response limiting
-- **Tools**: Individual tool enable/disable switches
-- **Logging**: Selective logging categories
-- **Integrations**: External service connections
-- **Voice**: TTS settings and volume control
+- **AI Behavior**: Continuous Thinking toggle, Auto Restart toggle
+- **Rate Limiting**: Limit Processing, Limit Speaking, plus numeric delay inputs with Apply buttons
+- **Agent Memory**: Base/Short/Long memory toggles, Save Memory toggle
+- **Filters**: Content Filter, AI semantic filter
+- **Debug & Logging**: Per-category log toggles (system, prompts by mode, responses, tools, chat)
+- **Internal Tools** (dynamically discovered): One section per `service_type` (e.g. TTS, Voice Input). Each section shows all tools in that category with a mutual-exclusivity warning and an active-tool indicator. Enabling one tool in a category automatically disables the previously active one.
+- **External Tools** (dynamically discovered): One section per category from `information.json` metadata. Individual enable/disable per tool.
+- **Global Controls**: Enable All / Disable All buttons
 
 **Integration**:
 - Direct binding to controls module
-- Real-time tool lifecycle management
-- Immediate effect on agent behavior
+- Real-time tool lifecycle management via ControlManager and ToolManager
+- Immediate effect on agent behavior without restart for supported flags
 
 ### ChatView
 
-**Purpose**: Real-time conversation interface with the agent
+**Purpose**: Conversational interface and system log display.
 
 **Features**:
-- Conversation history display with color-coded messages
-- Message type visualization (user, agent, system, tool, memory, etc.)
-- Text input with multi-line support
-- Send button and keyboard shortcuts
-- Processing indicator
-- Auto-scrolling to latest messages
-- Conversation history persistence
+- System log (upper-right quadrant): all internal processing output, color-coded, auto-trimmed to 6000 lines
+- Chat display (lower-right quadrant): conversation history with color-coded sender labels, auto-trimmed to 600 lines (~100 messages)
+- Input area: multi-line text box with Enter to send, Shift+Enter for newline
+- Send and Stop buttons
+- Processing indicator label
+- Content filter applied to user input before display and queueing
+- Auto-scroll to latest message
 
 **Message Types with Color Coding**:
-- **USER**: User messages (green in dark themes)
-- **AGENT**: Agent responses (purple accents)
-- **SYSTEM**: System notifications (gray)
-- **TOOL**: Tool execution results (yellow-green)
-- **MEMORY**: Memory operations (yellow)
-- **THINKING**: Internal thoughts (magenta)
-- **ERROR**: Error messages (red)
-- **DISCORD/TWITCH/YOUTUBE**: Chat platform messages (cyan)
+- **USER**: User messages
+- **AGENT**: Agent responses
+- **SYSTEM**: System notifications
+- **TOOL**: Tool execution results
+- **MEMORY**: Memory operations
+- **THINKING**: Internal thoughts
+- **ERROR**: Error messages
+- **DISCORD / TWITCH / YOUTUBE**: Chat platform messages
 
-**Layout**:
-- Left panel: System log (all internal processing)
-- Right panel: Chat display + input area
-- Bottom: Input text area + send/stop buttons
-
-**Input Features**:
-- Shift+Enter: New line
-- Enter: Send message
-- Content filtering on input
-- Empty message prevention
-- Processing state indicators
+**Performance Limits**:
+- System log: 6000 lines maximum (actual Text widget lines, not log entry count)
+- Chat display: 600 lines maximum
 
 ### ToolsView
 
-**Purpose**: Dynamic tool panel container with per-tool interfaces
+**Purpose**: Dynamic tool panel container with per-tool custom interfaces.
 
 **Features**:
-- Automatic tool discovery from installed tools
-- Individual tab per tool component
-- Scrollable panel containers
-- Tool component lifecycle management
-- Refresh functionality
-- Error handling for failed components
+- Vertical sidebar navigation: each tool with a `component.py` gets a sidebar button and a dedicated content page
+- Sidebar buttons highlight the active selection
+- Content area uses a scrollable canvas per tool page
+- Refresh button: reloads Python modules for active tools via HotReloadManager, then calls `tool_manager.refresh_tools()` to stop/rediscover/restart all tools, then rebuilds all GUI panels
+- Version display per tool (if HotReloadManager is available)
+- Per-tool reload button in the panel header (if HotReloadManager is available)
 
 **Discovery Process**:
-1. Scan tools directory for installed tools
-2. Check for component.py files
-3. Load information.json metadata
-4. Filter to tools with GUI components
-5. Create dedicated tab for each tool
+1. Scan `BASE/tools/installed/` for tool directories
+2. Check for `component.py` and `information.json` in each directory
+3. Load display name, icon, and category from metadata
+4. Filter to tools that have `component.py`
+5. Sort alphabetically by display name
+6. Create sidebar button and content page for each
 
-**Component Requirements**: Tools must provide a factory function that creates a GUI component instance with a create_panel() method. The factory receives parent GUI, AI core, and logger instances.
+**Component Requirements**: Tools must provide a `create_component(parent_gui, ai_core, logger)` factory function that returns a component instance with a `create_panel(parent_frame)` method. An optional `cleanup()` method is called when the panel is unloaded.
 
-**Tab Structure**:
-- Icon + tool display name as tab label
-- Scrollable content area
-- Component panel mounted within container
-- Automatic cleanup on view close
+**Error Handling**: Failed component loads show an error panel in the tool's page rather than crashing the entire Tools view.
 
 ### InfoView
 
-**Purpose**: Project documentation display
+**Purpose**: Project documentation display.
 
 **Features**:
-- README.md rendering with markdown formatting
+- README.md rendered with basic markdown formatting
 - Syntax highlighting for code blocks
-- Hyperlink styling
-- Header formatting (H1, H2, H3)
-- List formatting with bullets
-- Refresh functionality
-- Scrollable content
+- Header formatting (H1, H2, H3) with distinct colors per level
+- Bold text, inline code, bulleted lists, and hyperlink styling
+- Refresh button reloads the file from disk
 
-**Markdown Support**: Headers at multiple levels, bold text, inline code, code blocks with language specification, bulleted and numbered lists, and hyperlinks.
+### FilesView
 
-**Layout**:
-- Header with title and refresh button
-- Main text area with scrollbar
-- File path display at bottom
+**Purpose**: Wrapper that mounts the SessionFilesPanel into the Files tab.
+
+**Features**:
+- Delegates entirely to `SessionFilesPanel`
+- Shows an error label if the panel failed to initialize
 
 ## Theme System
 
-The GUI supports three comprehensive themes with consistent styling across all components:
+The GUI supports three comprehensive themes. The active theme is selected from a combobox in the top bar; the bar itself rebuilds when the theme changes to apply the new font.
 
 ### DarkTheme (Default)
 
-**Color Palette**: Deep blacks for backgrounds, light grays for foregrounds, purple/green/blue accents, and dark gray borders.
-
-**Characteristics**:
-- Modern, professional appearance
-- Reduced eye strain in low light
-- Purple accent for primary interactions
-- Green accent for success/positive actions
+Deep black backgrounds, light gray foregrounds, purple/green/blue accents. Modern, low eye-strain appearance.
 
 ### LightTheme
 
-**Color Palette**: Light grays for backgrounds, dark grays for foregrounds, purple/green/blue accents (darker shades), and light gray borders.
-
-**Characteristics**:
-- Clean, professional appearance
-- High contrast for bright environments
-- Accessible color combinations
-- Suitable for formal presentations
+Light gray backgrounds, dark foregrounds, darker accent shades. High contrast for bright environments.
 
 ### CyberTheme
 
-**Color Palette**: Ultra-deep purples for backgrounds, neon green/purple for foregrounds, neon green/cyan/pink accents, and glowing neon borders.
-
-**Characteristics**:
-- Cyberpunk/hacker aesthetic
-- High-contrast neon colors
-- Courier New monospace font
-- Border emphasis and visual glow
-- Distinctive, immersive appearance
+Ultra-deep purple backgrounds, neon green/cyan foregrounds, monospace Courier New font throughout, glowing neon borders, bracketed labels (e.g. `[SEND]`, `[STOP]`), and `>>` / `<<` prefixes on chat messages.
 
 ### Theme Application
 
-**Styled Elements**: Window backgrounds, all ttk widgets (buttons, frames, labels, checkboxes), text widgets, scrollbars, notebook tabs, menu/tab buttons, label frames, and comboboxes.
-
-**Dynamic Updates**: When theme changes, all ttk styles are reconfigured, text widget colors updated, custom widgets refreshed, menu recreated with new styling, active tab highlighting updated, and color tags in text displays reconfigured.
-
-**Font Selection**: Light/Dark themes use Segoe UI (modern, readable), while Cyber theme uses Courier New (monospace, tech aesthetic).
+When the theme changes: all ttk styles are reconfigured, text widget colors updated, custom widgets refreshed, top bar rebuilt with new font, and chat display color tags reconfigured. Font selection: Light/Dark use Segoe UI; Cyber uses Courier New.
 
 ## Message Processing
 
 ### Asynchronous Flow
 
-All message processing happens asynchronously to keep the GUI reactive:
+**User Input Path**: User types in input widget → `send_message()` applies content filter → filtered message displayed in chat → placed on `input_queue` → background thread calls `MessageProcessor.process_message()` → `ai_core.process_user_message()` → response placed on `message_queue` → queue processor on main thread extracts and displays → TTS triggered if enabled.
 
-**User Input Path**: User types in input widget, ChatView validates and filters, message displayed immediately, background thread spawned for processing, AICore processes message, response queued to message queue, main thread extracts from queue and displays, TTS triggered if enabled.
+**Autonomous Response Path**: Cognitive loop generates autonomous response → `handle_autonomous_response()` callback queued → `message_queue` receives `("agent", agentname, response)` → queue processor displays in chat → TTS triggered if enabled.
 
-**Autonomous Response Path**: Cognitive loop generates autonomous response, response sent via callback to GUI, message queued to message queue, main thread extracts and displays, TTS triggered if enabled.
-
-**Processing Indicators**: "Processing..." label shown during message handling, send button disabled during processing, cleared on completion, error messages displayed for failures.
+**Processing Indicators**: Processing label shown during message handling, Send button disabled, cleared on completion.
 
 ### Thread Safety
 
-**Queue-Based Updates**: All GUI updates go through thread-safe queues for messages and voice input.
+**Queue-Based Updates**: All GUI updates go through thread-safe queues. The queue processor runs in the main thread at 100ms intervals (`root.after(100, process_queues)`), extracting messages and routing them to `ChatView.add_chat_message()`.
 
-**Queue Processor**: Runs in main thread at 100ms intervals, extracting messages and routing them to appropriate display methods based on message type.
-
-**TTS Management**: Speech played in background thread, stop event for interruption, new speech cancels previous, no blocking of GUI or message processing.
+**TTS Management**: Speech plays in a background thread with a stop event for interruption. New speech cancels the previous speech thread. The Stop button is the only user-facing interruption path; user input does not interrupt ongoing speech.
 
 ## Voice Manager
 
-Handles voice input and TTS configuration:
+Handles voice input configuration and TTS backend selection:
 
 **Features**:
-- TTS backend selection (XTTS, pyttsx3, etc.)
+- TTS backend selection (resolved from InternalToolManager)
 - Volume control with live updates
-- Voice model selection (XTTS only)
-- Microphone input support (when implemented)
-- Real-time availability status
-
-**TTS Integration**:
-- Direct connection to ai_core.tts_tool
-- Volume applied before speech
-- Stop functionality for interruption
-- Error handling with user feedback
-
-**Panel Elements**:
-- Backend selection dropdown
-- Voice model selector (conditional)
-- Volume slider (0-100%)
-- Device display (XTTS)
-- Status indicators
+- Voice model selector (backend-dependent)
+- Microphone input controls
+- Real-time availability status display
 
 ## Control Panel Manager
 
-Manages feature toggles and configuration:
+Manages feature toggles with dynamic discovery:
 
-**Toggle Categories**:
+**Toggle Source**: Scans `BASE/tools/internal/` for `information.json` files to build internal tool sections dynamically. Scans `BASE/tools/installed/` for external tool sections. Static control groups (AI Behavior, Rate Limiting, Memory, Filters, Logging) are hardcoded.
 
-**Core Features**: Memory System, Cognitive Loop, Chat Engagement, Response Rate Limiting
+**Internal Tool Mutual Exclusivity**: Tracked per `service_type`. When a tool is toggled on, `_update_tool_category_ui()` refreshes all checkboxes and status labels in that service group to reflect the new state. A category status label shows which tool (if any) is currently active.
 
-**Tools**: Dynamically generated from discovered tools, individual enable/disable per tool, real-time lifecycle management, status indicators
-
-**Logging**: System Information, Tool Execution, Response Processing, Prompt Construction, Chat Messages
-
-**Integration Patterns**: Checkbox bound to config attribute, onChange callback updates config, config change triggers system update, status reflected immediately.
+**Tooltips**: All checkboxes and labels support hover tooltips via temporary `Toplevel` windows.
 
 ## Dynamic Tool Panel System
 
-Enables tools to provide custom GUI interfaces:
+Enables tools to provide custom GUI interfaces without modifying the main application.
 
-### Discovery Process
+**Loader**: `DynamicToolPanelLoader` handles discovery, module loading, and cleanup. Modules are loaded with `importlib.util` and registered in `sys.modules`. Stale cached modules are evicted before reload to pick up file changes.
 
-**Scan Phase**: Check tools directory, look for component.py files in each tool directory, load information.json metadata, extract display name, icon, and category.
+**Factory Contract**:
+```python
+def create_component(parent_gui, ai_core, logger):
+    # returns component instance
 
-**Loading Phase**: Import component.py dynamically, find create_component() factory function, call factory with parent GUI/AI core/logger parameters, store component instance.
+class MyComponent:
+    def create_panel(self, parent_frame) -> tk.Frame: ...
+    def cleanup(self): ...  # optional
+```
 
-**Mounting Phase**: Create dedicated tab for tool, add scrollable container, call component's create_panel() method, mount returned frame in tab.
-
-### Component Interface
-
-**Required Factory Function**: Must create tool GUI component that accepts parent GUI, AI core, and logger as arguments and returns a component instance with create_panel() method and optional cleanup() method.
-
-**Required Component Method**: create_panel() accepts parent frame and returns a frame containing the tool's interface.
-
-### Example Tool Component
-
-Tool components typically initialize with references to parent GUI, AI core, and logger. They build custom interfaces in create_panel() with controls specific to the tool's functionality, handle tool execution through AI core integration, and optionally implement cleanup for resource management.
+**Hot Reload Integration**: The refresh flow in ToolsView runs module reloads through HotReloadManager, then calls `tool_manager.refresh_tools()` to restart tools, then rebuilds all GUI panels from scratch.
 
 ## Session Files Panel
 
 Manages temporary reference files for the agent:
 
 **Features**:
-- File upload with type filtering
-- Display uploaded files with metadata
-- Preview file contents
-- Remove individual files
-- Clear all files
-- Automatic file parsing and indexing
+- File upload with type filtering (Python, JS/TS, Java, C/C++, C#, Go, Rust, Markdown, Text, JSON, XML)
+- File list with per-file metadata (type, line count, sections, size) and remove button
+- Clear All button
+- Scrollable list with dynamic scrollbar (shown only when content overflows)
+- Size warning dialog for files over 1MB
 
-**Supported File Types**: Python, JavaScript/TypeScript, Java, C/C++, C#, Go, Rust, Markdown, Text, JSON, XML
-
-**File Display**: Type emoji icon, filename with extension, file metadata (type, lines, sections, size), remove button per file, color-coded by type
-
-**Integration**: Files loaded into SessionFileManager, parsed into sections/functions, available to agent for reference, cleared when session ends
+**Integration**: Files loaded into `SessionFileManager` via `ai_core.load_session_file()`. Listed via `ai_core.list_session_files()`. Cleared via `ai_core.unload_session_file()` or `ai_core.clear_all_session_files()`.
 
 ## Configuration Management
 
 ### Config Singleton
 
-Single Config instance shared across entire GUI, initialized once and passed to logger and AI core, verified to share same instance across all components.
-
-**Benefits**:
-- No configuration drift
-- Immediate propagation of changes
-- Single source of truth
-- Thread-safe updates
+Single Config instance created in `OllamaGUI.__init__()` and passed to Logger, AICore, and ControlManager. A verification step (`_verify_config_chain()`) confirms all components share the same instance by comparing object IDs. A mismatch raises `RuntimeError` at startup.
 
 ### Settings Persistence
 
-**Auto-save**: Config changes saved immediately, control toggles update config, theme selection persisted, window geometry saved
+**Hot Apply**: `ConfigView.apply_changes_hot()` writes field values directly to live `bot_info` and `controls` modules using `setattr`. Logging controls are synced to both the `controls` module and the `Config` singleton so the Logger sees changes immediately.
 
-**Export**: JSON export of all settings, timestamped filename, human-readable format, import functionality (future)
+**Save to Disk**: `ConfigView.save_all_configs()` calls three writers: `save_config_json()` (updates `config.json`), `save_bot_info_py()` (updates `bot_info.py`), and `save_controls_py()` (updates `controls.py`). Each Python file writer creates a `.bak` backup before writing.
 
 ## Error Handling
 
-### User-Facing Errors
+**Message Processing Errors**: Displayed in chat as ERROR type with red color coding, logged to system log.
 
-**Message Processing Errors**: Displayed in chat as ERROR type, red color coding, clear error description, logged to system log
+**Tool Loading Errors**: Error panel shown in the tool's page in ToolsView; system log receives full traceback; GUI remains functional.
 
-**Tool Loading Errors**: Error panel in tool tab, description of failure, traceback in system log, graceful degradation
+**File Upload Errors**: Dialog box with error details, size validation before upload, type checking enforced.
 
-**File Upload Errors**: Dialog box with error details, validation before upload, size warnings for large files, type checking
-
-### Internal Errors
-
-**Exception Handling**: Try-catch around all async operations, traceback printed to console, error logged to system log, GUI remains reactive
-
-**Recovery Strategies**: Failed tool loads don't crash GUI, message processing errors isolated, theme errors revert to default, component failures show error panels
+**Config Chain Failure**: Mismatched Config instances raise `RuntimeError` at startup before the GUI window is shown.
 
 ## Performance Optimizations
 
-**Lazy Loading**: Tool components loaded on-demand, view content created only when shown, large text operations batched
+**Log Trimming**: System log trimmed to 6000 lines and chat display trimmed to 600 lines using actual `Text.index("end-1c")` line counts rather than entry counts.
 
-**Update Throttling**: Queue processor runs at 100ms intervals, text widget updates batched, scroll position maintained
+**Queue Throttling**: Queue processor fires every 100ms; multiple queued messages are drained in a single loop iteration.
 
-**Memory Management**: Chat display limited to recent messages, system log auto-trimmed at length limit, tool components cleaned up when unloaded, old message queue items discarded
+**Mousewheel Binding**: Mousewheel is bound only while the cursor is inside a scrollable widget and unbound on leave, preventing conflicts between multiple scroll areas.
 
-**Thread Efficiency**: Single processing thread per message, queue-based inter-thread communication, background tasks properly cancelled, no thread proliferation
+**Lazy Component Loading**: Tool components are loaded on demand when their panel is first created, not during discovery.
 
-## Extensibility
-
-The GUI is designed for easy extension:
-
-**Adding New Views**: Create view class in appropriate file, add view frame to main frames method, add tab button to menu, implement view creation method, add to view switching logic
-
-**Adding New Themes**: Define theme class in themes module, add to themes registry, define all required color constants, test with all views and components
-
-**Adding Tool Panels**: Create component.py in tool directory, implement create_component() factory, build panel interface, tool auto-discovered on startup
-
-**Custom Widgets**: Inherit from ttk or tk widgets, apply theme colors in constructor, support theme updates via config, register with theme manager if needed
+**Pending Log Buffer**: Log messages emitted before `system_log` widget exists are queued in `_pending_log_messages` and flushed once the widget is ready.
 
 ## Keyboard Shortcuts
 
-**Chat View**:
+**Chat Panel**:
 - **Enter**: Send message
 - **Shift+Enter**: New line in input
-- **Ctrl+L**: Clear chat display (future)
+- **Ctrl+Enter**: Send message (alternate)
 
-**Global**:
-- **Tab Navigation**: Switch between views
-- **Mousewheel**: Scroll in focused area
+## Extensibility
 
-**Future Enhancements**: Configurable keyboard shortcuts, command palette, quick tool access shortcuts, search functionality
+**Adding New Views**: Create a view class, add a frame via `UIBuilder`, add a tab to the notebook or a new quadrant as needed.
 
-## Accessibility Features
+**Adding New Themes**: Define a theme class in the themes module, add to the `THEMES` registry, define all required color constants.
 
-**Color Accessibility**: High contrast ratios in all themes, color-blind friendly palettes, redundant visual indicators (not just color)
+**Adding Tool Panels**: Create `component.py` in the tool directory with a `create_component()` factory. Tool is auto-discovered on next startup or Tools panel refresh.
 
-**Text Readability**: Adjustable font sizes (via theme), clear font choices, proper line spacing, word wrap in all text areas
-
-**Keyboard Navigation**: Tab order for all controls, Enter key for primary actions, Escape for cancel operations, focus indicators on all interactive elements
-
-The GUI system provides a professional, reactive, and extensible interface for interacting with the agentic framework, balancing sophistication with usability while maintaining clean separation from core agent logic.
+**Custom Widgets**: Apply theme colors from `DarkTheme` constants and support the theme update pattern used by `ThemeManager`.
 
 ---
 
@@ -1227,4 +1186,4 @@ All logging decisions are made in the `Logger` singleton based on control variab
 
 ---
 
-This system represents a sophisticated agentic architecture balancing continuous autonomous cognition with selective, natural communication—designed for coherent, context-aware AI assistants that think continuously but speak purposefully.
+This system represents a sophisticated agentic architecture balancing continuous autonomous cognition with selective, natural communication—designed for coherent, context-aware AI assistants that think continuously and speak purposefully.

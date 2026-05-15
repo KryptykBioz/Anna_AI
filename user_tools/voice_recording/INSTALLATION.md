@@ -483,7 +483,7 @@ print('[OK] SPEAKER_VERIFICATION_THRESHOLD:', controls.SPEAKER_VERIFICATION_THRE
 
 # Test 4: Check voice sample exists
 python -c "
-from personality.bot_info import username
+from BASE.config.bot_info import username
 from pathlib import Path
 sample = Path(f'./personality/voice/{username}_voice_sample.mp3')
 print(f'[OK] Voice sample exists: {sample.exists()}')

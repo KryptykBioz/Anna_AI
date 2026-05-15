@@ -123,7 +123,7 @@ class ActionStateManager:
         )
         return action_id
     
-    def _evict_oldest_completed(self, count: int = 50):
+    def _evict_oldest_completed(self, count: int = 100):
         """Evict oldest completed actions to maintain size limit"""
         completed = [
             (action_id, action) for action_id, action in self.actions.items()
@@ -391,7 +391,7 @@ class ActionStateManager:
                 tool_tracking = self._tool_attempt_tracking[tool_name]
                 if len(tool_tracking) > 100:
                     sorted_items = sorted(tool_tracking.items(), key=lambda x: x[1], reverse=True)
-                    self._tool_attempt_tracking[tool_name] = dict(sorted_items[:50])
+                    self._tool_attempt_tracking[tool_name] = dict(sorted_items[:100])
             
             self._last_cleanup = current_time
     

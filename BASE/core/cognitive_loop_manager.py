@@ -220,11 +220,15 @@ class CognitiveLoopManager:
                             f"(delay: {self.min_response_interval}s). Agent continues thinking."
                         )
                     else:
-                        # Secondary AI veto before TTS fires
                         time_since_user = self.thought_processor.thought_buffer.get_time_since_last_user_input()
+
+                        # Detect if user spoke after the last [SELF] response
+                        has_unresponded = self._has_unresponded_user_input()
+
                         judge_approved = self.speak_judge.should_speak(
                             time_since_last_response=time_since_last_response,
-                            time_since_last_user=time_since_user
+                            time_since_last_user=time_since_user,
+                            has_unresponded_user_input=has_unresponded
                         )
 
                         if judge_approved:
@@ -292,68 +296,75 @@ class CognitiveLoopManager:
         
         self.logger.system("[Cognitive Loop] STOPPED")
 
+    def _has_unresponded_user_input(self) -> bool:
+        """
+        Returns True if the user has spoken more recently than the agent's last [SELF] response.
+        Scans the thought buffer in reverse — stops at the first [SELF] or [USER] entry found.
+        """
+        buf = self.thought_processor.thought_buffer
+        thoughts = buf.get_thoughts_for_response()
+
+        for entry in reversed(thoughts):
+            lower = entry.lower()
+            if '[self]' in lower[:30]:
+                return False  # Agent already responded after last user input
+            if '[user]' in lower[:30]:
+                return True   # User spoke, agent hasn't replied yet
+
+        # No [USER] found at all — no unresponded input
+        return False
+
     async def _generate_response(self):
         """
         Generate autonomous spoken response
         NOTE: Rate limiting and speak judge handled in cognitive loop before this is called
         """
-        # Check AI core
         if not hasattr(self, 'ai_core_ref') or not self.ai_core_ref:
             self.logger.warning("[Autonomous] No AI core - cannot generate")
             self.thought_processor.thought_buffer.response_trigger.clear()
             return
-        
+
         try:
-            # Use processing_delegator to generate response
             if hasattr(self.ai_core_ref, 'processing_delegator'):
                 delegator = self.ai_core_ref.processing_delegator
-                
-                # Generate autonomous response
+
                 response = await delegator._generate_responsive_response(
                     user_text="",
                     context_parts=[],
                     chat_context=None,
                     is_chat_engagement=False
                 )
-                
+
                 if response:
-                    # Add response echo to thought buffer FIRST
                     thought_buffer = self.thought_processor.thought_buffer
                     thought_buffer.add_response_echo(
                         response_text=response,
                         timestamp=time.time()
                     )
-                    
-                    # Save to memory
+
                     if hasattr(self.ai_core_ref, 'memory_manager'):
                         memory_mgr = self.ai_core_ref.memory_manager
                         if self.controls.SAVE_MEMORY:
                             saved_entry = memory_mgr.save_bot_response(response)
-                            
                             if saved_entry:
                                 self.logger.memory(
                                     f"[Autonomous] Saved (Short: {len(memory_mgr.short_memory)})"
                                 )
-                    
-                    # CRITICAL FIX: Wait for group chat tool to be ready (10 seconds)
+
                     if getattr(self.controls, 'IN_GROUP_CHAT', False):
                         if hasattr(self.ai_core_ref, 'tool_manager') and self.ai_core_ref.tool_manager:
-                            # Wait for tool to be active (10 seconds for group chat)
                             tool_ready = await self.ai_core_ref.tool_manager.wait_for_tool_ready(
                                 'group_chat',
                                 timeout=10.0
                             )
-                            
                             if tool_ready:
                                 group_chat_tool = self.ai_core_ref.tool_manager._active_tools.get('group_chat')
                                 if group_chat_tool and hasattr(group_chat_tool, 'broadcast_spoken_response'):
                                     try:
-                                        # Verify tool has connections
                                         if len(group_chat_tool._clients) == 0:
                                             self.logger.warning(
                                                 "[Autonomous] [Group Chat] Tool ready but no peer connections"
                                             )
-                                        
                                         result = group_chat_tool.broadcast_spoken_response(response)
                                         if result:
                                             self.logger.success(
@@ -362,7 +373,7 @@ class CognitiveLoopManager:
                                             )
                                         else:
                                             self.logger.warning(
-                                                f"[Autonomous] [Group Chat] Broadcast returned False"
+                                                "[Autonomous] [Group Chat] Broadcast returned False"
                                             )
                                     except Exception as e:
                                         self.logger.error(
@@ -374,15 +385,40 @@ class CognitiveLoopManager:
                                 self.logger.warning(
                                     "[Autonomous] [Group Chat] Tool not ready after 10s wait"
                                 )
-                    
-                    # Call the callback to queue for GUI
+
+                    # Route to Discord if tool is active, has a live channel, and the
+                    # intercept is NOT already installed (intercept handles reply-to-DM routing;
+                    # this block only handles truly autonomous/proactive spoken responses).
+                    if hasattr(self.ai_core_ref, 'tool_manager') and self.ai_core_ref.tool_manager:
+                        discord_tool = self.ai_core_ref.tool_manager._active_tools.get('discord_chat')
+                        if discord_tool and discord_tool.is_available():
+                            channel = discord_tool.last_dm_channel
+                            intercept_active = discord_tool._pending_discord_channel is not None
+                            if channel and not intercept_active and discord_tool.loop and discord_tool.loop.is_running():
+                                try:
+                                    asyncio.run_coroutine_threadsafe(
+                                        discord_tool._send_dm(channel, response),
+                                        discord_tool.loop
+                                    )
+                                    self.logger.success(
+                                        f"[Autonomous] [Discord] Spoken response routed to DM "
+                                        f"({len(response)} chars)"
+                                    )
+                                    if discord_tool._thought_buffer:
+                                        discord_tool._thought_buffer.add_processed_thought(
+                                            content=(
+                                                f"[DISCORD CONFIRMED] Response sent to DM "
+                                                f"({len(response)} chars). Do NOT send this response again."
+                                            ),
+                                            source='discord_confirmed',
+                                        )
+                                except Exception as e:
+                                    self.logger.error(f"[Autonomous] [Discord] Route failed: {e}")
+
                     if self.autonomous_response_callback:
                         try:
                             self.autonomous_response_callback(response)
-                            
-                            # Clear trigger ONLY after successful callback
                             thought_buffer.response_trigger.clear()
-                            
                         except Exception as e:
                             self.logger.error(f"[Autonomous] Callback error: {e}")
                             import traceback
@@ -391,8 +427,7 @@ class CognitiveLoopManager:
                     else:
                         self.logger.error("[Autonomous] [FAILED] No callback registered!")
                         return
-                    
-                    # Update timestamp (only after successful callback)
+
                     self.last_response_time = time.time()
                 else:
                     self.logger.warning("[Autonomous] Empty response")
@@ -400,7 +435,7 @@ class CognitiveLoopManager:
             else:
                 self.logger.error("[Autonomous] No processing_delegator")
                 self.thought_processor.thought_buffer.response_trigger.clear()
-            
+
         except Exception as e:
             self.logger.error(f"[Autonomous] Error: {e}")
             import traceback

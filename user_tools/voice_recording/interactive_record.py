@@ -95,7 +95,7 @@ def select_prompt_set():
 def get_username():
     """Get username"""
     try:
-        from personality.bot_info import username
+        from BASE.config.bot_info import username
         print(f"\n[INFO] Detected username: {username}")
         return username
     except ImportError:

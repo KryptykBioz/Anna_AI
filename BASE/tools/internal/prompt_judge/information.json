@@ -1,0 +1,20 @@
+{
+  "tool_name": "prompt_judge",
+  "tool_description": "AI judge for optimizing prompts",
+  "category": "internal",
+  "service_type": "prompt",
+  "control_variable_name": "USE_PROMPT_JUDGE",
+  "control_logic": "enabled_when_true",
+  "version": "2.0.0",
+  "priority": 10,
+  "requirements": {
+    "gpu_recommended": true,
+    "min_vram_gb": 4
+  },
+  "features": {
+
+  },
+  "configuration": {
+
+  }
+}

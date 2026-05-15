@@ -1,4 +1,4 @@
-# Filename: BASE/memory/embed_personality.py
+# Filename: BASE/recall/embed_personality.py
 """
 Personality Training Data Embedder - Two-Stage Architecture
 Separates training data into:

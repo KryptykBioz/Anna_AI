@@ -23,7 +23,7 @@ class BaseTool(ABC):
     """Base class for all tools in the simplified architecture"""
     
     __slots__ = (
-        '_config', '_controls', '_logger', '_running', '_context_task'
+        '_config', '_controls', '_logger', '_running', '_context_task', '_thought_buffer'
     )
     
     def __init__(self, config, controls, logger=None):
@@ -32,6 +32,7 @@ class BaseTool(ABC):
         self._logger = logger
         self._running = False
         self._context_task = None
+        self._thought_buffer = None
         
     # ==================== REQUIRED METHODS ====================
     
@@ -187,42 +188,28 @@ class BaseTool(ABC):
     # ==================== LIFECYCLE MANAGEMENT ====================
     
     async def start(self, thought_buffer=None, event_loop=None):
-        """
-        Start the tool (called when control variable enabled)
-        
-        This method:
-        1. Checks if already running
-        2. Calls initialize()
-        3. Starts context loop (if needed)
-        4. Logs success
-        
-        Args:
-            thought_buffer: Optional ThoughtBuffer for context injection
-            event_loop: Optional event loop for async tasks
-        """
         if self._running:
             if self._logger:
                 self._logger.warning(f"[{self.name}] Already running")
             return
-        
-        # Initialize tool
+
         success = await self.initialize()
-        
+
         if not success:
             if self._logger:
                 self._logger.error(f"[{self.name}] Initialization failed")
             return
-        
+
         self._running = True
-        
-        # Start context loop if needed
+        self._thought_buffer = thought_buffer
+
         if self.has_context_loop() and thought_buffer and event_loop:
             self._context_task = event_loop.create_task(
                 self._safe_context_loop(thought_buffer)
             )
             if self._logger:
                 self._logger.system(f"[{self.name}] Context loop started")
-        
+
         if self._logger:
             self._logger.success(f"[{self.name}] Tool started successfully")
     
@@ -340,3 +327,17 @@ class BaseTool(ABC):
             'metadata': metadata or {},
             'guidance': guidance or f'{self.name} execution failed'
         }
+    def _get_result_limits(self) -> tuple:
+        """
+        Compute (n_results, chars_per_result) from config.
+
+        MAX_TOOL_RESULT_CHARS / MAX_TOOL_RESULTS = chars allocated per entry.
+        Both values floor at safe minimums.
+
+        Returns:
+            (n_results: int, chars_per_result: int)
+        """
+        max_chars   = max(50, getattr(self._config, 'MAX_TOOL_RESULT_CHARS', 1000))
+        n_results   = max(1,  getattr(self._config, 'MAX_TOOL_RESULTS',       3))
+        chars_each  = max(50, max_chars // n_results)
+        return n_results, chars_each

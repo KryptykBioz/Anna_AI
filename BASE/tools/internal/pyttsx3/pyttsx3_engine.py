@@ -53,7 +53,7 @@ def clean_text_for_tts(text: str) -> str:
 def find_vb_cable_device():
     """Find VB-Cable device"""
     try:
-        from personality.bot_info import vb_cable_name
+        from BASE.config.bot_info import vb_cable_name
         
         devices = sd.query_devices()
         
@@ -96,7 +96,7 @@ def speak_system_voice(text: str, engine, stop_event=None, volume: float = 1.0) 
             """Generate WAV file"""
             nonlocal generation_error
             try:
-                from personality.bot_info import voiceIndex
+                from BASE.config.bot_info import voiceIndex
                 
                 voices = engine_to_use.getProperty('voices')
                 if 0 <= voiceIndex < len(voices):

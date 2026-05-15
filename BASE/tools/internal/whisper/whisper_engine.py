@@ -54,47 +54,68 @@ GPU_CONFIG = {
 }
 
 
-def load_whisper_model():
+_WHISPER_MODEL_INSTANCE: WhisperModel | None = None
+_WHISPER_MODEL_LOCK = threading.Lock()
+
+_SINGLETON_KEY = "BASE.tools.internal.whisper._model_singleton"
+
+
+def load_whisper_model() -> WhisperModel | None:
     """
-    Load Faster-Whisper model
+    Load Faster-Whisper model — process-wide singleton.
+    Safe against repeated importlib loads under different module names.
 
     Returns:
         WhisperModel instance or None if failed
     """
-    print("[Whisper] Loading Faster-Whisper (SMALL, int8)...")
+    import sys
 
-    try:
-        model = WhisperModel(
-            GPU_CONFIG['model_size'],
-            device=GPU_CONFIG['device'],
-            compute_type=GPU_CONFIG['compute_type']
-        )
+    existing = sys.modules.get(_SINGLETON_KEY)
+    if existing is not None:
+        print("[Whisper] Reusing existing model instance")
+        return existing
 
-        print("[Whisper] Warming up model...")
+    global _WHISPER_MODEL_LOCK
 
-        warmup_audio = np.zeros(SAMPLERATE, dtype=np.float32)
-        segments, _ = model.transcribe(
-            warmup_audio,
-            language='en',
-            beam_size=GPU_CONFIG['beam_size'],
-            vad_filter=True,
-            vad_parameters=dict(
-                min_silence_duration_ms=500,
-                speech_pad_ms=200
+    with _WHISPER_MODEL_LOCK:
+        existing = sys.modules.get(_SINGLETON_KEY)
+        if existing is not None:
+            return existing
+
+        print("[Whisper] Loading Faster-Whisper (SMALL, int8)...")
+
+        try:
+            model = WhisperModel(
+                GPU_CONFIG['model_size'],
+                device=GPU_CONFIG['device'],
+                compute_type=GPU_CONFIG['compute_type']
             )
-        )
 
-        list(segments)
+            print("[Whisper] Warming up model...")
 
-        print("[Whisper] Model ready")
+            warmup_audio = np.zeros(SAMPLERATE, dtype=np.float32)
+            segments, _ = model.transcribe(
+                warmup_audio,
+                language='en',
+                beam_size=GPU_CONFIG['beam_size'],
+                vad_filter=True,
+                vad_parameters=dict(
+                    min_silence_duration_ms=500,
+                    speech_pad_ms=200
+                )
+            )
+            list(segments)
 
-        return model
+            print("[Whisper] Model ready")
 
-    except Exception as e:
-        print(f"[Whisper] Failed to load model: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
+            sys.modules[_SINGLETON_KEY] = model
+            return model
+
+        except Exception as e:
+            print(f"[Whisper] Failed to load model: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
 
 def recognition_worker_whisper(whisper_tool):
@@ -143,10 +164,10 @@ def recognition_worker_whisper(whisper_tool):
             max_amplitude = np.max(np.abs(audio_chunk))
 
             if chunks_received % 30 == 0 or (current_time - last_log_time) > 5.0:
-                print(f"[Whisper Worker] Chunks: {chunks_received}, "
-                      f"Queue: {whisper_tool._raw_queue.qsize()}, "
-                      f"Audio level: {max_amplitude:.4f}, "
-                      f"Accumulated: {accumulated_duration:.1f}s")
+                # print(f"[Whisper Worker] Chunks: {chunks_received}, "
+                #       f"Queue: {whisper_tool._raw_queue.qsize()}, "
+                #       f"Audio level: {max_amplitude:.4f}, "
+                #       f"Accumulated: {accumulated_duration:.1f}s")
                 last_log_time = current_time
 
             if max_amplitude < 0.001:
@@ -159,8 +180,8 @@ def recognition_worker_whisper(whisper_tool):
             if accumulated_duration >= AUDIO_CHUNK_DURATION:
                 audio_data = np.concatenate(accumulated_audio)
 
-                print(f"[Whisper Worker] Transcribing {len(audio_data)} samples "
-                      f"({accumulated_duration:.1f}s, level: {np.max(np.abs(audio_data)):.4f})")
+                # print(f"[Whisper Worker] Transcribing {len(audio_data)} samples "
+                #       f"({accumulated_duration:.1f}s, level: {np.max(np.abs(audio_data)):.4f})")
 
                 start_time = time.time()
 
@@ -196,8 +217,8 @@ def recognition_worker_whisper(whisper_tool):
                         except queue.Full:
                             print("[Whisper Worker] [WARNING] Text/audio queue full")
 
-                if segment_count == 0:
-                    print(f"[Whisper Worker] No speech detected in {accumulated_duration:.1f}s of audio")
+                # if segment_count == 0:
+                #     print(f"[Whisper Worker] No speech detected in {accumulated_duration:.1f}s of audio")
 
                 accumulated_audio = []
                 accumulated_duration = 0.0
