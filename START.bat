@@ -1,5 +1,5 @@
 @echo off
-title Anna AI - Starting...
+title Anna AI
 color 0A
 
 REM Store original directory

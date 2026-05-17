@@ -379,8 +379,10 @@ class MemorySearch:
         Returns:
             Truncated text with [...] suffix
         """
-        if len(text) <= max_length:
-            return text
+
+        # OVERRIDE: For now, return full text and let LLM handle truncation if needed
+        # if len(text) <= max_length:
+        return text
         
         truncated = text[:max_length]
         

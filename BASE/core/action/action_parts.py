@@ -33,7 +33,7 @@ When a cognitive mode decides to use a tool, construct the complete tool command
 1. Identify which base tool names were decided (e.g. "sound", "calculator")
 2. Read the detailed tool documentation below
 3. Choose the appropriate command for each tool (e.g. sound.play, calculator.evaluate)
-4. Extract parameters from recent thoughts, ensuring the tool selected matches the information source (e.g., internal memory vs. external web search).
+4. Extract parameters from recent thoughts, ensuring the tool selected matches the required information source (e.g., internal memory vs. external web search).
 5. Output the complete tool calls with tool.command and args, ensuring the underlying intent maintains Anna's warm and cheerful tone.
 
 **Rules:**

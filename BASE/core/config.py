@@ -152,7 +152,7 @@ class Config:
 
     def _apply_models(self):
         s = self._section("models")
-        default = "gemma3:12b-it-q4_K_M"
+        default = "gemma4:latest"
         self.thought_model: str = _env_section("models", "thought_model",  s.get("thought_model",  default))
         self.text_model:    str = _env_section("models", "response_model", s.get("response_model", default))
         self.vision_model:  str = _env_section("models", "vision_model",   s.get("vision_model",   default))

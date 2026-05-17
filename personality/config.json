@@ -11,12 +11,12 @@
   },
 
   "models": {
-    "thought_model":    "gemma3:12b-it-q4_K_M",
-    "response_model":   "gemma3:12b-it-q4_K_M",
-    "vision_model":     "gemma3:12b-it-q4_K_M",
+    "thought_model":    "gemma4:latest",
+    "response_model":   "gemma4:latest",
+    "vision_model":     "gemma4:latest",
     "embed_model":      "nomic-embed-text:latest",
-    "tool_model":       "gemma3:12b-it-q4_K_M",
-    "action_model":     "gemma3:12b-it-q4_K_M"
+    "tool_model":       "gemma4:latest",
+    "action_model":     "gemma4:latest"
   },
 
   "voice": {

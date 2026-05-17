@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anna AI — Core Processing Overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#ffffff;font-family:'DM Sans',sans-serif;color:#1a1a2e;min-height:100vh}
+body{max-width:780px;margin:0 auto;padding:3rem 2rem 5rem}
+
+header{margin-bottom:2.5rem}
+.eyebrow{font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.2em;color:#8a8aab;text-transform:uppercase;margin-bottom:.5rem}
+h1{font-size:1.75rem;font-weight:600;color:#1a1a2e;letter-spacing:-.03em;line-height:1.15;margin-bottom:.3rem}
+.subtitle{font-family:'DM Mono',monospace;font-size:.68rem;color:#9999b8;letter-spacing:.03em}
+
+/* ── Legend ── */
+.legend{display:flex;flex-wrap:wrap;gap:.45rem 1.2rem;margin-bottom:2.5rem}
+.legend-item{display:flex;align-items:center;gap:.45rem;font-size:.7rem;color:#5a5a7a;font-family:'DM Mono',monospace}
+.l-swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+
+/* ── Flow column ── */
+.flow{display:flex;flex-direction:column;align-items:center;gap:0}
+
+/* ── SVG arrow connector ── */
+.arrow-wrap{display:flex;flex-direction:column;align-items:center;width:100%;position:relative;flex-shrink:0}
+.arrow-label{font-family:'DM Mono',monospace;font-size:.62rem;color:#aaaacc;letter-spacing:.05em;margin-bottom:2px}
+
+/* ── Blocks ── */
+.block{width:100%;border-radius:14px;border:1.5px solid;padding:1.1rem 1.4rem;position:relative;transition:box-shadow .2s}
+.block:hover{box-shadow:0 6px 28px rgba(0,0,0,.08)}
+
+.block.mint    {background:#edfdf4;border-color:#a8e6c8;color:#1a3d2c}
+.block.sky     {background:#eaf4ff;border-color:#a8d4f5;color:#0d2a42}
+.block.lavender{background:#f3f0ff;border-color:#c4b5fd;color:#2d1f5e}
+.block.peach   {background:#fff4ed;border-color:#fdc9a8;color:#4a1f04}
+.block.rose    {background:#fff0f3;border-color:#f9b8c4;color:#420d1a}
+.block.lemon   {background:#fefce8;border-color:#f5e07a;color:#3d2e00}
+.block.slate   {background:#f4f6fa;border-color:#c5cedc;color:#2a3348}
+.block.lilac   {background:#fdf4ff;border-color:#d8b4fe;color:#3b0764}
+
+/* Block header */
+.block-tag{display:inline-block;font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;padding:.2rem .55rem;border-radius:20px;border:1px solid;margin-bottom:.55rem;opacity:.75}
+.block.mint     .block-tag{background:#c6f2dc;border-color:#7dd9aa;color:#1a5c3a}
+.block.sky      .block-tag{background:#c5e8ff;border-color:#72bff0;color:#093d66}
+.block.lavender .block-tag{background:#ddd6fe;border-color:#a78bfa;color:#3c1f87}
+.block.peach    .block-tag{background:#fde0c8;border-color:#f5a878;color:#6b2800}
+.block.rose     .block-tag{background:#fdd5de;border-color:#f48fb0;color:#6b0022}
+.block.lemon    .block-tag{background:#fef3a0;border-color:#e8d044;color:#5a3f00}
+.block.slate    .block-tag{background:#dce2ee;border-color:#9aaac4;color:#2a3a5e}
+.block.lilac    .block-tag{background:#f0d9ff;border-color:#c084fc;color:#4c1075}
+
+.block-title{font-size:1rem;font-weight:600;letter-spacing:-.02em;line-height:1.25;margin-bottom:.3rem}
+.block-desc{font-size:.8rem;font-weight:400;line-height:1.55;opacity:.8}
+
+/* ── Decision block ── */
+.decision{width:100%;border-radius:14px;border:1.5px dashed;padding:1rem 1.4rem;position:relative}
+.decision.lemon {background:#fefce8;border-color:#e8c840;color:#3d2e00}
+.decision.rose  {background:#fff0f3;border-color:#f48fb0;color:#420d1a}
+.decision-header{display:flex;align-items:center;gap:.6rem;margin-bottom:.55rem}
+.decision-diamond{width:22px;height:22px;flex-shrink:0;transform:rotate(45deg);border-radius:3px;border:1.5px solid}
+.decision.lemon .decision-diamond{background:#fef08a;border-color:#ca9f00}
+.decision.rose  .decision-diamond{background:#fecdd3;border-color:#f48fb0}
+.decision-title{font-size:.95rem;font-weight:600;letter-spacing:-.02em}
+.decision-paths{font-size:.77rem;line-height:1.7;opacity:.8}
+.decision-paths .path-yes{color:#15803d;font-weight:500}
+.decision-paths .path-no {color:#be123c;font-weight:500}
+.decision-paths .path-alt{color:#7c3aed;font-weight:500}
+
+/* ── Branch grid ── */
+.branch-grid{width:100%;display:grid;gap:10px}
+.branch-grid.cols3{grid-template-columns:1fr 1fr 1fr}
+.branch-grid.cols2{grid-template-columns:1fr 1fr}
+.branch-card{border-radius:11px;border:1.5px solid;padding:.85rem 1rem}
+.branch-card.lavender{background:#f3f0ff;border-color:#c4b5fd;color:#2d1f5e}
+.branch-card.sky     {background:#eaf4ff;border-color:#a8d4f5;color:#0d2a42}
+.branch-card.mint    {background:#edfdf4;border-color:#a8e6c8;color:#1a3d2c}
+.branch-card.peach   {background:#fff4ed;border-color:#fdc9a8;color:#4a1f04}
+.branch-card.rose    {background:#fff0f3;border-color:#f9b8c4;color:#420d1a}
+.branch-card.slate   {background:#f4f6fa;border-color:#c5cedc;color:#2a3348}
+.branch-card-label{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;opacity:.55;margin-bottom:.4rem}
+.branch-card-title{font-size:.82rem;font-weight:600;margin-bottom:.2rem;line-height:1.25}
+.branch-card-sub{font-size:.72rem;opacity:.7;line-height:1.4}
+
+/* ── Loop back ── */
+.loop-pill{display:flex;align-items:center;gap:.65rem;background:#f0fdf4;border:1.5px solid #a8e6c8;border-radius:40px;padding:.65rem 1.2rem;width:fit-content;align-self:center;margin-top:4px}
+.loop-icon{font-size:1rem}
+.loop-text{font-family:'DM Mono',monospace;font-size:.68rem;color:#1a5c3a;letter-spacing:.03em}
+
+/* ── Background services ── */
+.bg-section{width:100%;margin-top:2.5rem;padding-top:2rem;border-top:1.5px dashed #dde3ee}
+.bg-label{font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:#aaaacc;text-align:center;margin-bottom:1rem}
+
+footer{margin-top:3rem;padding-top:1.25rem;border-top:1px solid #eaecf2;font-family:'DM Mono',monospace;font-size:.6rem;color:#aaaacc;line-height:1.9}
+footer strong{color:#7a7a9a}
+
+/* ── Stagger animation ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.flow>*{animation:fadeUp .35s ease both}
+.flow>*:nth-child(1) {animation-delay:.04s}
+.flow>*:nth-child(2) {animation-delay:.08s}
+.flow>*:nth-child(3) {animation-delay:.12s}
+.flow>*:nth-child(4) {animation-delay:.16s}
+.flow>*:nth-child(5) {animation-delay:.20s}
+.flow>*:nth-child(6) {animation-delay:.24s}
+.flow>*:nth-child(7) {animation-delay:.28s}
+.flow>*:nth-child(8) {animation-delay:.32s}
+.flow>*:nth-child(9) {animation-delay:.36s}
+.flow>*:nth-child(10){animation-delay:.40s}
+.flow>*:nth-child(11){animation-delay:.44s}
+.flow>*:nth-child(12){animation-delay:.48s}
+.flow>*:nth-child(13){animation-delay:.52s}
+.flow>*:nth-child(14){animation-delay:.56s}
+.flow>*:nth-child(15){animation-delay:.60s}
+.flow>*:nth-child(16){animation-delay:.64s}
+.flow>*:nth-child(17){animation-delay:.68s}
+.flow>*:nth-child(18){animation-delay:.72s}
+.flow>*:nth-child(19){animation-delay:.76s}
+.flow>*:nth-child(20){animation-delay:.80s}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Anna AI — v2 Architecture</div>
+  <h1>Core Processing Overview</h1>
+  <div class="subtitle">Input to output · high-level cognitive loop</div>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><div class="l-swatch" style="background:#a8e6c8"></div>Startup / Loop</div>
+  <div class="legend-item"><div class="l-swatch" style="background:#a8d4f5"></div>Context / Memory</div>
+  <div class="legend-item"><div class="l-swatch" style="background:#c4b5fd"></div>Cognitive / LLM</div>
+  <div class="legend-item"><div class="l-swatch" style="background:#fdc9a8"></div>Tool Execution</div>
+  <div class="legend-item"><div class="l-swatch" style="background:#a8e6c8;opacity:.5"></div>Output / Delivery</div>
+  <div class="legend-item"><div class="l-swatch" style="background:#f5e07a"></div>Decision</div>
+</div>
+
+<div class="flow">
+
+  <!-- 1. STARTUP -->
+  <div class="block mint">
+    <div class="block-tag">Startup</div>
+    <div class="block-title">System Initialization</div>
+    <div class="block-desc">CoreInitializer boots all subsystems — memory, tools, cognitive processors — and spawns the continuous async loop.</div>
+  </div>
+
+  <div class="arrow-wrap">
+    <svg width="40" height="38" viewBox="0 0 40 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="2" x2="20" y2="28" stroke="#b0b8d8" stroke-width="2" stroke-linecap="round"/>
+      <polyline points="12,22 20,34 28,22" fill="none" stroke="#b0b8d8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- 2. LOOP GUARD -->
+  <div class="decision lemon">
+    <div class="decision-header">
+      <div class="decision-diamond"></div>
+      <div class="decision-title">Loop Guard</div>
+    </div>
+    <div class="decision-paths">
+      <span class="path-no">[Stop]</span> Shutdown flag — loop exits &nbsp;&nbsp;
+      <span class="path-no">[Skip]</span> Processing lock held or cooldown active<br>
+      <span class="path-yes">[Pass]</span> All clear — lock acquired, cycle proceeds
+    </div>
+  </div>
+
+  <div class="arrow-wrap">
+    <svg width="40" height="38" viewBox="0 0 40 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="2" x2="20" y2="28" stroke="#b0b8d8" stroke-width="2" stroke-linecap="round"/>
+      <polyline points="12,22 20,34 28,22" fill="none" stroke="#b0b8d8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- 3. CONTEXT BUILD -->
+  <div class="block sky">
+    <div class="block-tag">Context</div>
+    <div class="block-title">Build Thought Context</div>
+    <div class="block-desc">Assembles the full cognitive state: memory tiers, tool state, session files, active goals, and user context.</div>
+  </div>
+
+  <div class="arrow-wrap">
+    <svg width="40" height="38" viewBox="0 0 40 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="2" x2="20" y2="28" stroke="#b0b8d8" stroke-width="2" stroke-linecap="round"/>
+      <polyline points="12,22 20,34 28,22" fill="none" stroke="#b0b8d8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- 4. PROCESSING MODE BRANCH -->
+  <div class="decision lemon">
+    <div class="decision-header">
+      <div class="decision-diamond"></div>
+      <div class="decision-title">Processing Mode Selection</div>
+    </div>
+    <div class="decision-paths">
+      <span class="path-yes">[Reactive]</span> Unprocessed events in buffer &nbsp;&nbsp;
+      <span class="path-alt">[Proactive]</span> Idle &lt;6 min &nbsp;&nbsp;
+      <span class="path-alt">[Reflective]</span> Idle &gt;=6 min
+    </div>
+  </div>
+
+  <div class="arrow-wrap">
+    <svg width="40" height="38" viewBox="0 0 40 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="2" x2="20" y2="28" stroke="#b0b8d8" stroke-width="2" stroke-linecap="round"/>
+      <polyline points="12,22 20,34 28,22" fill="none" stroke="#b0b8d8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- 5. MODE BRANCHES -->
+  <div class="branch-grid cols3">
+    <div class="branch-card lavender">
+      <div class="branch-card-label">Reactive</div>
+      <div class="branch-card-title">ReactiveConstructor</div>
+      <div class="branch-card-sub">Responds to user input or tool results</div>
+    </div>
+    <div class="branch-card lavender">
+      <div class="branch-card-label">Proactive</div>
+      <div class="branch-card-title">ProactiveConstructor</div>
+      <div class="branch-card-sub">Self-initiated thought when idle</div>
+    </div>
+    <div class="branch-card lavender">
+      <div class="branch-card-label">Reflective</div>
+      <div class="branch-card-title">ReflectiveConstructor</div>
+      <div class="branch-card-sub">Deep reflection after extended idle</div>
+    </div>
+  </div>
+
+  <div class="arrow-wrap">
+    <svg width="40" height="38" viewBox="0 0 40 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="2" x2="20" y2="28" stroke="#b0b8d8" stroke-width="2" stroke-linecap="round"/>
+      <polyline points="12,22 20,34 28,22" fill="none" stroke="#b0b8d8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- 6. LLM CALL -->
+  <div class="block lavender">
+    <div class="block-tag">LLM Call</div>
+    <div class="block-title">Ollama — Generate Thought</div>
+    <div class="block-desc">LLM produces a structured response containing a next-mode directive, a speak flag, optional tool actions, and thought content stored to the buffer.</div>
+  </div>
+
+  <div class="arrow-wrap">
+    <svg width="40" height="38" viewBox="0 0 40 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="2" x2="20" y2="28" stroke="#b0b8d8" stroke-width="2" stroke-linecap="round"/>
+      <polyline points="12,22 20,34 28,22" fill="none" stroke="#b0b8d8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- 7. ACTIONS GATE -->
+  <div class="decision lemon">
+    <div class="decision-header">
+      <div class="decision-diamond"></div>
+      <div class="decision-title">Actions Requested?</div>
+    </div>
+    <div class="decision-paths">
+      <span class="path-yes">[Yes]</span> Tool actions present — execute pipeline, inject result to buffer, then continue<br>
+      <span class="path-no">[No]</span> No actions — proceed directly to Speak Gate
+    </div>
+  </div>
+
+  <div class="arrow-wrap">
+    <svg width="40" height="38" viewBox="0 0 40 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="2" x2="20" y2="28" stroke="#b0b8d8" stroke-width="2" stroke-linecap="round"/>
+      <polyline points="12,22 20,34 28,22" fill="none" stroke="#b0b8d8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- 8. TOOL EXECUTION -->
+  <div class="block peach">
+    <div class="block-tag">Tool Execution</div>
+    <div class="block-title">ToolManager — Execute Actions</div>
+    <div class="block-desc">Resolves each action to an active BaseTool, runs execute(), and feeds the result back into the ThoughtBuffer for the ActionConstructor to process.</div>
+  </div>
+
+  <div class="arrow-wrap">
+    <svg width="40" height="38" viewBox="0 0 40 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="2" x2="20" y2="28" stroke="#b0b8d8" stroke-width="2" stroke-linecap="round"/>
+      <polyline points="12,22 20,34 28,22" fill="none" stroke="#b0b8d8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- 9. SPEAK GATE -->
+  <div class="decision lemon">
+    <div class="decision-header">
+      <div class="decision-diamond"></div>
+      <div class="decision-title">Speak Gate — Should Anna Respond?</div>
+    </div>
+    <div class="decision-paths">
+      <span class="path-no">[Block]</span> speak=NO, rate limit hit, or interval too short — suppressed<br>
+      <span class="path-yes">[Pass]</span> speak=YES and rate OK — proceed to SpeakJudge for LLM veto
+    </div>
+  </div>
+
+  <div class="arrow-wrap">
+    <svg width="40" height="38" viewBox="0 0 40 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="2" x2="20" y2="28" stroke="#b0b8d8" stroke-width="2" stroke-linecap="round"/>
+      <polyline points="12,22 20,34 28,22" fill="none" stroke="#b0b8d8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- 10. SPEAK JUDGE + GENERATE -->
+  <div class="block lavender">
+    <div class="block-tag">LLM Call</div>
+    <div class="block-title">SpeakJudge + Generate Response</div>
+    <div class="block-desc">A secondary LLM call vetoes low-value speech. If approved, ResponsiveConstructor generates the final response text with full memory context injected.</div>
+  </div>
+
+  <div class="arrow-wrap">
+    <svg width="40" height="38" viewBox="0 0 40 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="2" x2="20" y2="28" stroke="#b0b8d8" stroke-width="2" stroke-linecap="round"/>
+      <polyline points="12,22 20,34 28,22" fill="none" stroke="#b0b8d8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- 11. COGNITIVE FILTER -->
+  <div class="decision rose">
+    <div class="decision-header">
+      <div class="decision-diamond" style="background:#fecdd3;border-color:#f48fb0"></div>
+      <div class="decision-title">CognitiveFilter — Validate Response</div>
+    </div>
+    <div class="decision-paths">
+      <span class="path-yes">[Pass]</span> Context, language, and duplicate checks all clear<br>
+      <span class="path-no">[Discard]</span> Off-topic, wrong language, or duplicate — silently dropped<br>
+      <span class="path-alt">[Fail-open]</span> Filter timeout — response approved automatically
+    </div>
+  </div>
+
+  <div class="arrow-wrap">
+    <svg width="40" height="38" viewBox="0 0 40 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="2" x2="20" y2="28" stroke="#b0b8d8" stroke-width="2" stroke-linecap="round"/>
+      <polyline points="12,22 20,34 28,22" fill="none" stroke="#b0b8d8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- 12. OUTPUT DELIVERY -->
+  <div class="block mint">
+    <div class="block-tag">Output</div>
+    <div class="block-title">Deliver Response</div>
+    <div class="block-desc">Dispatches to all active channels simultaneously: TTS voice output, GUI callback, Discord DM, and group chat broadcast. Response echoed back to ThoughtBuffer as [SELF].</div>
+  </div>
+
+  <div class="arrow-wrap">
+    <svg width="40" height="38" viewBox="0 0 40 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="2" x2="20" y2="28" stroke="#b0b8d8" stroke-width="2" stroke-linecap="round"/>
+      <polyline points="12,22 20,34 28,22" fill="none" stroke="#b0b8d8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- 13. MEMORY SAVE -->
+  <div class="block sky">
+    <div class="block-tag">Memory</div>
+    <div class="block-title">Persist to Memory</div>
+    <div class="block-desc">Response saved to short-term memory. Embedded entries written to medium-term. Long-term daily summaries updated periodically. All files AES-256-GCM encrypted.</div>
+  </div>
+
+  <div class="arrow-wrap">
+    <svg width="40" height="38" viewBox="0 0 40 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="2" x2="20" y2="28" stroke="#b0b8d8" stroke-width="2" stroke-linecap="round"/>
+      <polyline points="12,22 20,34 28,22" fill="none" stroke="#b0b8d8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- 14. CYCLE END + LOOP -->
+  <div class="block slate">
+    <div class="block-tag">Cycle End</div>
+    <div class="block-title">Yield &amp; Reset</div>
+    <div class="block-desc">Anti-spin sleep(0.1s) yields the event loop. Periodic stats and memory integration run every 5 minutes. Crash recovery resets if stable for 5+ minutes.</div>
+  </div>
+
+  <div class="arrow-wrap" style="margin-top:10px">
+    <svg width="40" height="38" viewBox="0 0 40 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="20" y1="2" x2="20" y2="28" stroke="#a8e6c8" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 3"/>
+      <polyline points="12,22 20,34 28,22" fill="none" stroke="#a8e6c8" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <div class="loop-pill">
+    <div class="loop-icon">[Loop]</div>
+    <div class="loop-text">Returns to Loop Guard — next cycle begins</div>
+  </div>
+
+</div><!-- /flow -->
+
+<!-- Background services -->
+<div class="bg-section">
+  <div class="bg-label">Background services — running concurrently on every cycle</div>
+  <div class="branch-grid cols2">
+    <div class="branch-card sky">
+      <div class="branch-card-label">Tool Context Loops</div>
+      <div class="branch-card-title">Per-tool async tasks</div>
+      <div class="branch-card-sub">Active tools push periodic updates into the ThoughtBuffer independently of the main loop.</div>
+    </div>
+    <div class="branch-card sky">
+      <div class="branch-card-label">Memory Integration</div>
+      <div class="branch-card-title">Long-memory search</div>
+      <div class="branch-card-sub">Similarity search over long-term memory every ~5 min — relevant entries injected as thought events.</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <strong>BASE/core:</strong> cognitive_loop_manager · thought_processor · cognitive_filter · speak_judge · thinking_modes · thought_buffer · processing_delegator · cognitive_loop_recovery<br>
+  <strong>BASE/handlers:</strong> tool_manager · base_tool · tts_interface · content_filter · chat_engagement · chat_event_converter<br>
+  <strong>BASE/recall:</strong> memory_manager · memory_search · memory_encryption · memory_integration · session_file_manager
+</footer>
+
+</body>
+</html>

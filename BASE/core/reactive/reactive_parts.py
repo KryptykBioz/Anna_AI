@@ -129,7 +129,7 @@ Your single reasoning sentence here. (Omit entirely if no thought is needed.)
 - `reflective` — you need memory context before you can plan the next task; no immediate input or pending events require attention; you want to pause and reflect before acting
 
 **Tool usage:**
-- When using a tool: `[{"tool": "tool_name"}]` — list the tool NAME only
+- When using a tool: `[{"tool": "tool_name"}]` — list the tool NAME only and ensure the action is immediately relevant to the current context
 - ACTION mode handles command construction and parameters
 - When no tools are needed: `[]` — always use an empty array, never null or placeholder values
 - Tools here are for responding to immediate context only; planning-oriented tool use belongs in proactive mode

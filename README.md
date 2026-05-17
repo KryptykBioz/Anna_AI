@@ -8,10 +8,12 @@ This is a sophisticated agentic AI system built on Ollama that implements a two-
 - Persistent memory similar to a human's that can recall a day's events even after years have passed.
 - Agent's cognition runs continuously, with or without input and decides when to speak
 - Interact with either text or voice
+- Encrypted, password-protected memory files that cannot be read without the user's password (set on first run after enabling)
 - Modular tools can be added or removed dynamically without modifying the agent's core; simply drop the new tool directory in or remove an existing one
 - Flexible architecture can run on many types of devices and hardware configurations with little modification (mobile version runs on smartphone/tablet)
 - Memory can persist between devices using a private GitHub repo to sync agent memory
 - Optional content filters replace profanity or undesired words with [FILTERED], but do not block the rest of the content. These filters may be enabled or disabled by toggle.
+- Recommended Ollama base model for cognitive modes, action mode, and default responsive mode: gemma4:latest
 - Uncensored agent when using an uncensored LLM for the spoken response mode (still retains all functionality, only affects spoken responses); recommended: llama2-uncensored:7b-chat-q4_K_M
 - Universal kill command key phrase (immediately shuts down entire system when it finds this phrase in ANY source of incoming data)
 - Live updated code base with hot reloaded core and tools
@@ -83,7 +85,7 @@ The agent's avatar lives in the corner of the screen while the user is gaming, c
 
 ## Overview
 
-This agentic framework implements a continuous cognitive processing system that operates independently of user input. The agent maintains an internal stream of consciousness, accumulates observations and thoughts, and decides when to generate verbal responses based on priority signals and accumulated context.
+This agentic framework implements a continuous cognitive processing system that operates independently of user input. The agent maintains an internal stream of consciousness, accumulates observations and thoughts, and decides when to generate verbal responses based on accumulated context.
 
 The architecture separates **thinking** (internal cognitive processing) from **speaking** (verbal output generation), enabling the agent to continuously process information while selectively engaging in conversation when appropriate.
 
@@ -93,11 +95,9 @@ The architecture separates **thinking** (internal cognitive processing) from **s
 
 **Event-Driven Processing**: Raw incoming data (user messages, tool results, observations) are queued as events and transformed into interpreted thoughts through the thinking model.
 
-**Priority-Based Response**: Thoughts are tagged with priority levels (LOW, MEDIUM, HIGH, CRITICAL) that determine urgency and influence when the agent should speak.
-
 **Modular Prompts**: Different cognitive modes (reactive, responsive, proactive, reflective) use specialized prompt constructors optimized for their specific reasoning patterns.
 
-**Separation of Concerns**: The system cleanly separates event capture, thought interpretation, priority assessment, prompt construction, and response generation into distinct components.
+**Separation of Concerns**: The system cleanly separates event capture, thought interpretation, prompt construction, and response generation into distinct components.
 
 ## Processing Flow
 
@@ -114,7 +114,7 @@ The architecture separates **thinking** (internal cognitive processing) from **s
 **ResponseDecider** (`response_decider.py`):
 - Determines which cognitive mode to use (REACTIVE/PROACTIVE/REFLECTIVE)
 - Based purely on timing (new input vs. recent vs. idle)
-- No content analysis or priority detection
+- No content analysis
 - Returns PromptDecision with mode and context flags
 
 **ThoughtProcessor** (`thought_processor.py`):
@@ -160,8 +160,6 @@ The system implements several adaptive mechanisms:
 **Momentum Tracking**: Consecutive proactive thoughts build momentum, encouraging sustained reasoning on topics of interest.
 
 **Context Decay**: Older thoughts naturally lose influence, preventing the agent from fixating on stale information.
-
-**Priority Elevation**: Events can trigger immediate priority escalation (e.g., direct mentions force CRITICAL priority).
 
 **Mode Switching**: The agent fluidly transitions between reactive, proactive, and reflective modes based on environmental context.
 
@@ -441,7 +439,7 @@ The modular prompt system includes several performance optimizations:
 
 **Length Constraints**: Each component has maximum lengths to prevent prompt bloat
 
-**Priority Ordering**: Most important context appears first (tool state, session files, user message)
+**Context Ordering**: Most important context appears first (tool state, session files, user message)
 
 These optimizations ensure the system scales efficiently even with large memory systems and many available tools.
 
@@ -632,7 +630,7 @@ The system maintains failure history enabling:
 
 **Failure Summaries**: Recent failures grouped by tool showing patterns like multiple timeouts or validation errors
 
-**Failure Patterns**: Detect systematic issues and inject high-priority thoughts alerting the agent
+**Failure Patterns**: Detect systematic issues and inject thoughts alerting the agent
 
 **Adaptive Behavior**: Agent learns from failures with contextual guidance in subsequent prompts
 
@@ -680,7 +678,7 @@ Covers unknown tools with available alternatives, disabled tools with enable ins
 
 Handles timeouts with suggestions to simplify requests, unavailable tools with diagnostic reasons, and command errors with available command lists.
 
-All errors are injected as HIGH priority thoughts, ensuring the agent is aware of issues and can adapt its approach.
+All errors are injected as thoughts, ensuring the agent is aware of issues and can adapt its approach.
 
 ## Performance Optimization
 
@@ -1081,9 +1079,9 @@ The `ChatHandler` manages live chat from multiple platforms:
 - Tracks metadata
 
 **Engagement Decisions**:
-- **Critical**: Direct bot mentions → immediate response
-- **High**: Questions or multiple unengaged messages
-- **Medium**: Natural conversation after threshold messages
+- Direct bot mentions → immediate response
+- Questions or multiple unengaged messages → elevated engagement
+- Natural conversation after threshold messages → standard engagement
 - Considers time since last engagement (cooldown)
 - Chat messages are ingested as raw events and processed through the cognitive pipeline
 
@@ -1154,11 +1152,11 @@ All logging decisions are made in the `Logger` singleton based on control variab
 
 1. **Input Arrives**: User message, chat activity, tool result, or timer event. Filtered through input filter and ingested into `ThoughtBuffer` as a raw event.
 
-2. **Cognitive Processing**: Cognitive loop detects pending event. `ThoughtProcessor` generates interpretation, which is added to the buffer with priority. Tool actions are identified and queued.
+2. **Cognitive Processing**: Cognitive loop detects pending event. `ThoughtProcessor` generates interpretation, which is added to the buffer. Tool actions are identified and queued.
 
 3. **Tool Execution**: `ToolManager` validates and `ActionStateManager` registers. Tool executes asynchronously. Result is injected back into `ThoughtBuffer`.
 
-4. **Response Decision**: `ThoughtBuffer` evaluates accumulated state (priority, unresponsive count, timing). If `should_speak` is `True`, proceeds to generation.
+4. **Response Decision**: `ThoughtBuffer` evaluates accumulated state (unresponsive count, timing). If `should_speak` is `True`, proceeds to generation.
 
 5. **Response Generation**: `ResponseGenerator` synthesizes responsive output using the thought chain and memory context.
 

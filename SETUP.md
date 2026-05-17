@@ -83,11 +83,11 @@ python copy_gpu_packages.py
 # Edit personality/bot_info.py with your settings and preferences:
 #   - agentname = "Anna"
 #   - username = "Sir"
-#   - thoughtmodel = "gemma3:12b-it-q4_K_M"
-#   - responsemodel = "gemma3:12b-it-q4_K_M"
-#   - toolmodel = "gemma3:12b-it-q4_K_M"
-#   - actionmodel = "gemma3:12b-it-q4_K_M"
-#   - visionmodel = "gemma3:12b-it-q4_K_M"
+#   - thoughtmodel = "gemma4:latest"
+#   - responsemodel = "gemma4:latest"
+#   - toolmodel = "gemma4:latest"
+#   - actionmodel = "gemma4:latest"
+#   - visionmodel = "gemma4:latest"
 #   - embedmodel = "nomic-embed-text:latest"
 # Edit config.json for advanced settings
 
@@ -303,7 +303,7 @@ Download models specified in bot_info.py:
 
 ```batch
 # Core models for Anna_AI
-ollama pull gemma3:12b-it-q4_K_M
+ollama pull gemma4:latest
 ollama pull nomic-embed-text:latest
 
 # Alternative models (optional)
@@ -312,7 +312,7 @@ ollama pull qwen3-vl:8b-thinking-q4_K_M
 ```
 
 Model download sizes:
-- gemma3:12b-it-q4_K_M: ~7GB
+- gemma4:latest: ~7GB
 - nomic-embed-text: ~275MB
 - qwen3-vl models: ~5GB each
 
@@ -326,7 +326,7 @@ curl http://localhost:11434/api/version
 ollama list
 
 # Test model
-ollama run gemma3:12b-it-q4_K_M "Hello, how are you?"
+ollama run gemma4:latest "Hello, how are you?"
 ```
 
 ### Step 5: Configure Agent for Ollama
@@ -444,11 +444,11 @@ username = "Sir"  # How the agent addresses you
 game_username = "Player"  # In-game username reference
 
 # Model Configuration (using Ollama)
-thoughtmodel = "gemma3:12b-it-q4_K_M"
-responsemodel = "gemma3:12b-it-q4_K_M"
-toolmodel = "gemma3:12b-it-q4_K_M"
-actionmodel = "gemma3:12b-it-q4_K_M"
-visionmodel = "gemma3:12b-it-q4_K_M"
+thoughtmodel = "gemma4:latest"
+responsemodel = "gemma4:latest"
+toolmodel = "gemma4:latest"
+actionmodel = "gemma4:latest"
+visionmodel = "gemma4:latest"
 embedmodel = "nomic-embed-text:latest"
 
 # Voice settings
@@ -1034,7 +1034,7 @@ Expected output:
 {"version":"0.x.x"}
 
 NAME                            ID              SIZE      MODIFIED
-gemma3:12b-it-q4_K_M           abc123          7.2 GB    X days ago
+gemma4:latest           abc123          7.2 GB    X days ago
 nomic-embed-text:latest         def456          275 MB    X days ago
 ```
 
@@ -1048,7 +1048,7 @@ dir .env
 type .env
 
 # Verify Ollama is using settings
-ollama show gemma3:12b-it-q4_K_M --verbose
+ollama show gemma4:latest --verbose
 ```
 
 ### Test 3: Agent Launch
@@ -1641,7 +1641,7 @@ type "%USERPROFILE%\.ollama\logs\server.log"
 
 **Solution**: Check disk space and retry
 ```batch
-ollama pull gemma3:12b-it-q4_K_M
+ollama pull gemma4:latest
 ```
 
 **Problem**: Connection refused errors
@@ -1820,7 +1820,7 @@ rmdir /s /q "%USERPROFILE%\.cache\huggingface"
 
 # Clear Ollama cache
 ollama rm --all
-ollama pull gemma3:12b-it-q4_K_M
+ollama pull gemma4:latest
 ```
 
 ### Agent Freezes or Crashes

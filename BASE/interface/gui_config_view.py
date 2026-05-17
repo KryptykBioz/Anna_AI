@@ -320,19 +320,19 @@ class ConfigView:
         frame=self.create_section_frame("Model Configuration","[Model]",column="left")
         models=self.bot_info_data
         self.add_input_field(frame,"Thought Model","thoughtmodel",
-                            models.get('thoughtmodel','gemma3:12b-it-q4_K_M'),
+                            models.get('thoughtmodel','gemma4:latest'),
                             tooltip="Model for cognitive processing")
         self.add_input_field(frame,"Response Model","responsemodel",
-                            models.get('responsemodel','gemma3:12b-it-q4_K_M'),
+                            models.get('responsemodel','gemma4:latest'),
                             tooltip="Model for response generation")
         self.add_input_field(frame,"Tool Model","toolmodel",
-                            models.get('toolmodel','gemma3:12b-it-q4_K_M'),
+                            models.get('toolmodel','gemma4:latest'),
                             tooltip="Model for tool selection")
         self.add_input_field(frame,"Action Model","actionmodel",
-                            models.get('actionmodel','gemma3:12b-it-q4_K_M'),
+                            models.get('actionmodel','gemma4:latest'),
                             tooltip="Model for action execution")
         self.add_input_field(frame,"Vision Model","visionmodel",
-                            models.get('visionmodel','gemma3:12b-it-q4_K_M'),
+                            models.get('visionmodel','gemma4:latest'),
                             tooltip="Model for image analysis")
         self.add_input_field(frame,"Embed Model","embedmodel",
                             models.get('embedmodel','nomic-embed-text:latest'),
