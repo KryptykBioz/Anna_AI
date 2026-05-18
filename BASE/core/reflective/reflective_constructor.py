@@ -145,13 +145,12 @@ class ReflectiveConstructor:
             else:
                 return ""
 
-        combined_query = " ".join(query_parts)
-
         try:
             examples = self.memory_search.get_thought_interpretation_examples(
-                context=combined_query,
+                context=" ".join(query_parts),
                 k=1,
-                min_similarity=0.3
+                min_similarity=0.3,
+                mode_filter='reflective'
             )
             if not examples:
                 return ""
@@ -162,11 +161,10 @@ class ReflectiveConstructor:
 
         if self.logger:
             self.logger.memory(
-                f"[Reflective Thought Examples] Found examples "
-                f"(context: '{ongoing_context or 'none'}')"
+                f"[Personality Retrieval] Found {len(examples.split('SITUATION:')) - 1} thought examples"
             )
 
-        return f"\n## THOUGHT EXAMPLES\n\n{examples}"
+        return f"\n<personality_examples>\n## PERSONALITY EXAMPLES\n\n{examples}\n</personality_examples>"
 
     def _get_memory_context(
         self,

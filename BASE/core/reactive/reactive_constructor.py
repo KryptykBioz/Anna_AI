@@ -12,10 +12,14 @@ from personality.prompts.personality_prompt_parts import PersonalityPromptParts
 
 
 class ReactiveConstructor:
-    __slots__ = ('tool_manager', 'logger', 'parts', 'personality', '_tool_list_cache_key', '_tool_list_cache_value')
+    __slots__ = (
+        'tool_manager', 'memory_search', 'logger', 'parts', 'personality',
+        '_tool_list_cache_key', '_tool_list_cache_value'
+    )
 
-    def __init__(self, tool_manager=None, logger=None):
+    def __init__(self, tool_manager=None, memory_search=None, logger=None):
         self.tool_manager = tool_manager
+        self.memory_search = memory_search
         self.logger = logger
         self.parts = ReactivePromptParts()
         self.personality = PersonalityPromptParts()
@@ -41,13 +45,22 @@ class ReactiveConstructor:
             sections.append(current_ctx)
 
         sections.append(self._format_recent_experiences(thought_chain))
+
+        if self.memory_search:
+            examples = self._get_thought_examples(
+                thought_chain=thought_chain,
+                raw_events=raw_events,
+                last_user_msg=last_user_msg
+            )
+            if examples:
+                sections.append(examples)
+
         sections.append(self.parts.get_mode_instructions())
 
         if self.tool_manager:
             tool_list = self._build_minimal_tool_list()
             if tool_list:
                 sections.append(tool_list)
-
 
         sections.append(self._format_incoming_data(raw_events))
 
@@ -98,6 +111,45 @@ class ReactiveConstructor:
             self.logger.reactive(f"{prompt}")
 
         return prompt
+
+    def _get_thought_examples(
+        self,
+        thought_chain: List[str],
+        raw_events: List[Any],
+        last_user_msg: Optional[str]
+    ) -> str:
+        if not self.memory_search:
+            return ""
+
+        query_parts = []
+        if thought_chain:
+            query_parts.append(" ".join(thought_chain))
+        if raw_events:
+            for event in raw_events:
+                content = getattr(event, 'content', getattr(event, 'data', None))
+                if content:
+                    query_parts.append(str(content))
+        if last_user_msg:
+            query_parts.append(last_user_msg)
+
+        if not query_parts:
+            return ""
+
+        examples = self.memory_search.get_thought_interpretation_examples(
+            context=" ".join(query_parts),
+            k=1,
+            mode_filter='reactive'
+        )
+
+        if not examples:
+            return ""
+
+        if self.logger:
+            self.logger.memory(
+                f"[Personality Retrieval] Found {len(examples.split('SITUATION:')) - 1} thought examples"
+            )
+
+        return f"\n<personality_examples>\n## PERSONALITY EXAMPLES\n\n{examples}\n</personality_examples>"
 
     def _build_minimal_tool_list(self) -> str:
         from BASE.handlers.tool_instruction_builder import ToolInstructionBuilder

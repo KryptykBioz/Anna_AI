@@ -13,10 +13,14 @@ from BASE.config.bot_info import username
 
 
 class ProactiveConstructor:
-    __slots__ = ('tool_manager', 'logger', 'parts', 'personality', '_tool_list_cache_key', '_tool_list_cache_value')
+    __slots__ = (
+        'tool_manager', 'memory_search', 'logger', 'parts', 'personality',
+        '_tool_list_cache_key', '_tool_list_cache_value'
+    )
 
-    def __init__(self, tool_manager=None, logger=None):
+    def __init__(self, tool_manager=None, memory_search=None, logger=None):
         self.tool_manager = tool_manager
+        self.memory_search = memory_search
         self.logger = logger
         self.parts = ProactivePromptParts()
         self.personality = PersonalityPromptParts()
@@ -38,6 +42,12 @@ class ProactiveConstructor:
             sections.append(current_ctx)
 
         sections.append(self._format_recent_experiences(thought_chain))
+
+        if self.memory_search:
+            examples = self._get_thought_examples(thought_chain, ongoing_context)
+            if examples:
+                sections.append(examples)
+
         sections.append(self.parts.get_mode_instructions())
 
         if self.tool_manager:
@@ -59,6 +69,39 @@ class ProactiveConstructor:
             self.logger.proactive(f"{prompt}")
 
         return prompt
+
+    def _get_thought_examples(
+        self,
+        thought_chain: List[str],
+        ongoing_context: str
+    ) -> str:
+        if not self.memory_search:
+            return ""
+
+        query_parts = []
+        if thought_chain:
+            query_parts.append(" ".join(thought_chain))
+        if ongoing_context:
+            query_parts.append(ongoing_context)
+
+        if not query_parts:
+            return ""
+
+        examples = self.memory_search.get_thought_interpretation_examples(
+            context=" ".join(query_parts),
+            k=1,
+            mode_filter='proactive'
+        )
+
+        if not examples:
+            return ""
+
+        if self.logger:
+            self.logger.memory(
+                f"[Personality Retrieval] Found {len(examples.split('SITUATION:')) - 1} thought examples"
+            )
+
+        return f"\n<personality_examples>\n## PERSONALITY EXAMPLES\n\n{examples}\n</personality_examples>"
 
     def _build_minimal_tool_list(self) -> str:
         from BASE.handlers.tool_instruction_builder import ToolInstructionBuilder

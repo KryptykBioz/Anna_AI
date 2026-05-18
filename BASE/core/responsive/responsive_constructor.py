@@ -111,11 +111,10 @@ class ResponsiveConstructor:
         if not query_parts:
             return ""
 
-        combined_query = " ".join(query_parts)
-
         examples = self.memory_search.get_response_generation_examples(
-            context=combined_query,
-            k=1
+            context=" ".join(query_parts),
+            k=1,
+            mode_filter='responsive'
         )
 
         if not examples:

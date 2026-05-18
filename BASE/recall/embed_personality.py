@@ -129,72 +129,45 @@ class PersonalityEmbedder:
             return None
     
     def create_chunk(self, item: Dict, idx: int, source_file: str, stage: str) -> Optional[Dict[str, Any]]:
-        """
-        Create chunk for either thought or response stage.
-        
-        UNIFIED: Both stages use 'response' field internally
-        External access should check metadata['stage'] to determine type
-        
-        Args:
-            item: Example dictionary with 'context', 'response', 'keywords'
-            idx: Index in examples list
-            source_file: Source filename
-            stage: 'thought' or 'response'
-        
-        Returns:
-            Formatted chunk dict or None if invalid
-        """
-        # Extract fields from example
-        context = item.get('context', '').strip()
+        context  = item.get('context',  '').strip()
         response = item.get('response', '').strip()
         keywords = item.get('keywords', [])
-        
-        # Validate
+        mode     = item.get('mode',     '').strip()
+
         if not context or not response:
             return None
-        
-        # Ensure keywords is a list
+
         if isinstance(keywords, str):
             keywords = [keywords]
         elif not isinstance(keywords, list):
             keywords = []
-        
-        # Clean and deduplicate keywords
+
         keywords = list(set(kw.lower().strip() for kw in keywords if kw))
-        
-        # Create searchable text (used for vector similarity)
+
         searchable_parts = [context, response] + keywords
+        if mode:
+            searchable_parts.append(mode)
         searchable_text = ' '.join(searchable_parts)
-        
-        # Create display text
+
         if stage == 'thought':
-            display_text = f"""SITUATION: {context}
+            display_text = f"SITUATION: {context}\n\nINTERNAL COGNITION: {response}\n\nKEYWORDS: {', '.join(keywords)}"
+        else:
+            display_text = f"SITUATION: {context}\n\nRESPONSE: {response}\n\nKEYWORDS: {', '.join(keywords)}"
 
-INTERNAL COGNITION: {response}
-
-KEYWORDS: {', '.join(keywords)}"""
-        else:  # response
-            display_text = f"""SITUATION: {context}
-
-RESPONSE: {response}
-
-KEYWORDS: {', '.join(keywords)}"""
-        
-        chunk = {
+        return {
             "text": display_text,
             "searchable_text": searchable_text,
             "metadata": {
-                "type": f"{stage}_example",
-                "stage": stage,
-                "context": context,
-                "response": response,
-                "keywords": keywords,
-                "source_file": source_file,
+                "type":          f"{stage}_example",
+                "stage":         stage,
+                "mode":          mode,
+                "context":       context,
+                "response":      response,
+                "keywords":      keywords,
+                "source_file":   source_file,
                 "example_index": idx
             }
         }
-        
-        return chunk
     
     def create_stage_summary(
         self,
@@ -344,40 +317,19 @@ They shape conversational style, tone, and expression patterns."""
         self.stats['total_embeddings'] += success_count
         return embedded_chunks
     
-    def save_embeddings(
-        self,
-        chunks: List[Dict[str, Any]],
-        stage: str,
-        source_filename: str
-    ):
-        """
-        Save embedded chunks to appropriate directory.
-        
-        FIXED: All embeddings now go to single embeddings/ directory
-        with stage indicated in filename
-        
-        Args:
-            chunks: List of embedded chunks
-            stage: 'thought' or 'response'
-            source_filename: Original source filename
-        """
+    def save_embeddings(self, chunks: List[Dict[str, Any]], stage: str, source_filename: str):
         base_name = Path(source_filename).stem
-        
-        # Create stage-specific filename
-        output_filename = f"{base_name}_{stage}_examples.json"
+        output_filename = f"{base_name}_embeddings.json"
         output_path = self.output_dir / output_filename
-        
-        # Count unique keywords
+
         all_keywords = []
         for c in chunks:
             metadata = c.get('metadata', {})
             if not metadata.get('is_summary'):
-                keywords = metadata.get('keywords', [])
-                all_keywords.extend(keywords)
-        
+                all_keywords.extend(metadata.get('keywords', []))
+
         unique_keywords = list(set(all_keywords))
-        
-        # Prepare output
+
         output_data = {
             "source_file": source_filename,
             "processing_stage": stage,
@@ -386,59 +338,49 @@ They shape conversational style, tone, and expression patterns."""
             "unique_keywords": len(unique_keywords),
             "chunks": chunks
         }
-        
-        # Save to disk
+
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(output_data, f, indent=2, ensure_ascii=False)
-        
+
         file_size_kb = output_path.stat().st_size / 1024
-        print(f"  [SUCCESS] Saved {stage} to: {output_filename}")
+        print(f"  [Confirmed] Saved to: {output_filename}")
         print(f"    Size: {file_size_kb:.1f} KB")
         print(f"    Unique keywords: {len(unique_keywords)}")
     
     def process_file(self, filepath: Path) -> bool:
-        """
-        Process a single training file.
-        
-        Args:
-            filepath: Path to training file
-        
-        Returns:
-            True if successful, False otherwise
-        """
+        output_path = self.output_dir / f"{filepath.stem}_embeddings.json"
+        if output_path.exists():
+            print(f"Skipping {filepath.name}: embeddings already exist at {output_path.name}")
+            return True
+
         print(f"Processing: {filepath.name}")
-        
-        # Load module
+
         result = self.load_training_module(filepath)
         if not result:
             return False
-        
+
         examples, system_info, processing_stage = result
-        
-        # Validate processing stage
+
         if processing_stage not in ['thought', 'response']:
             print(f"[WARNING] Invalid processing_stage '{processing_stage}'. Using 'response'.")
             processing_stage = 'response'
-        
+
         print(f"  Creating training chunks for stage: {processing_stage}")
         chunks = self.process_training_file(examples, system_info, processing_stage, filepath.name)
-        
+
         print(f"  Total chunks: {len(chunks)}")
-        
-        # Track statistics
+
         if processing_stage == 'thought':
             self.stats['thought_chunks'] += len(chunks)
         else:
             self.stats['response_chunks'] += len(chunks)
-        
-        # Embed chunks
+
         embedded_chunks = self.embed_chunks(chunks, processing_stage)
         if not embedded_chunks:
             return False
-        
-        # Save embeddings
+
         self.save_embeddings(embedded_chunks, processing_stage, filepath.name)
-        
+
         return True
     
     def process_all_files(self):

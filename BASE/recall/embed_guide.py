@@ -1,15 +1,14 @@
-# Filename: BASE/recall/embed_document.py
+# Filename: BASE/recall/embed_guide.py
 """
-Batch Document Embedding Script for RAG System
-Processes reference files in personality/base_memory/base_files/
-and saves embeddings to personality/base_memory/base_files/embeddings/
+Game Guide Embedding Script for RAG System
+Processes guide files in personality/base_memory/game_guides/
+and saves embeddings to personality/base_memory/game_guides/embeddings/
 
-Usage: python embed_document.py
+Usage: python embed_guide.py
 """
 
 import sys
 import json
-import os
 import requests
 from typing import List, Dict, Any
 import hashlib
@@ -17,8 +16,8 @@ import re
 from pathlib import Path
 
 
-class DocumentEmbedder:
-    """Batch document embedding for RAG system"""
+class GuideEmbedder:
+    """Batch game guide embedding for RAG system"""
 
     __slots__ = ('ollama_url', 'embed_model', 'input_dir', 'output_dir')
 
@@ -29,8 +28,8 @@ class DocumentEmbedder:
         script_dir = Path(__file__).parent
         base_dir = script_dir.parent.parent
 
-        self.input_dir = base_dir / "personality" / "base_memory" / "base_files"
-        self.output_dir = base_dir / "personality" / "base_memory" / "base_files" / "embeddings"
+        self.input_dir = base_dir / "personality" / "base_memory" / "game_guides"
+        self.output_dir = base_dir / "personality" / "base_memory" / "game_guides" / "embeddings"
 
     def chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
         lines = text.split('\n')
@@ -103,15 +102,38 @@ class DocumentEmbedder:
                     continue
             raise Exception(f"Unable to decode file {filepath}")
 
+    def extract_game_metadata(self, filepath: Path, content: str) -> Dict[str, Any]:
+        metadata = {
+            'type': 'game_guide',
+            'game_name': filepath.stem,
+            'sections': []
+        }
+
+        lines = content.split('\n')
+        for line in lines[:10]:
+            if line.startswith('# '):
+                metadata['game_name'] = line[2:].strip()
+                break
+
+        for line in lines:
+            if line.startswith('## '):
+                metadata['sections'].append(line[3:].strip())
+
+        return metadata
+
     def embed_document(self, filepath: Path) -> Dict[str, Any]:
         if not filepath.exists():
             raise FileNotFoundError(f"File {filepath} not found")
 
-        print(f"Loading document: {filepath}")
+        print(f"Loading guide: {filepath.name}")
         text = self.load_document(filepath)
-        print(f"Document loaded. Length: {len(text)} characters")
+        print(f"Loaded. Length: {len(text)} characters")
 
-        print("Chunking document...")
+        doc_metadata = self.extract_game_metadata(filepath, text)
+        print(f"Game: {doc_metadata['game_name']}")
+        print(f"Sections: {len(doc_metadata['sections'])}")
+
+        print("Chunking...")
         chunks = self.chunk_text(text)
         print(f"Created {len(chunks)} chunks")
 
@@ -120,6 +142,7 @@ class DocumentEmbedder:
             "source_file": str(filepath),
             "total_chunks": len(chunks),
             "embed_model": self.embed_model,
+            "metadata": doc_metadata,
             "chunks": []
         }
 
@@ -132,7 +155,12 @@ class DocumentEmbedder:
                     "id": i,
                     "text": chunk,
                     "embedding": embedding,
-                    "hash": hashlib.md5(chunk.encode()).hexdigest()
+                    "hash": hashlib.md5(chunk.encode()).hexdigest(),
+                    "metadata": {
+                        "type": "game_guide",
+                        "game_name": doc_metadata['game_name'],
+                        "source_file": filepath.name
+                    }
                 })
             else:
                 print(f"Failed to get embedding for chunk {i+1}")
@@ -143,10 +171,10 @@ class DocumentEmbedder:
         print(f"Saving embeddings to {output_file}")
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(embeddings_data, f, indent=2)
-        print("Embeddings saved successfully!")
+        print("Saved successfully!")
 
     def get_supported_files(self) -> List[Path]:
-        supported_extensions = {'.txt', '.md', '.rst', '.py', '.js', '.html', '.css', '.json', '.xml', '.csv', '.log'}
+        supported_extensions = {'.txt', '.md', '.rst', '.html', '.csv', '.log'}
         if not self.input_dir.exists():
             return []
         return [
@@ -161,11 +189,11 @@ class DocumentEmbedder:
 
         if not files_to_process:
             print(f"No supported files found in {self.input_dir}")
-            print("Supported extensions: .txt, .md, .rst, .py, .js, .html, .css, .json, .xml, .csv, .log")
+            print("Supported extensions: .txt, .md, .rst, .html, .csv, .log")
             return
 
         print(f"\n{'='*80}")
-        print("PROCESSING BASE MEMORY FILES")
+        print("PROCESSING GAME GUIDES")
         print(f"{'='*80}")
         print(f"Found {len(files_to_process)} files to process\n")
 
@@ -189,6 +217,8 @@ class DocumentEmbedder:
 
                 print(f"\n[Confirmed] Successfully processed {file_path.name}")
                 print(f"  Output: {output_path}")
+                print(f"  Game: {embeddings_data['metadata']['game_name']}")
+                print(f"  Sections: {len(embeddings_data['metadata']['sections'])}")
                 print(f"  Total chunks: {embeddings_data['total_chunks']}")
                 print(f"  Successful embeddings: {len(embeddings_data['chunks'])}")
 
@@ -201,7 +231,7 @@ class DocumentEmbedder:
         print(f"\n{'='*80}")
         print("BATCH PROCESSING COMPLETE")
         print(f"{'='*80}")
-        print(f"Total files processed: {len(files_to_process)}")
+        print(f"Total files found: {len(files_to_process)}")
         print(f"Successful: {successful}")
         print(f"Failed: {failed}")
         print(f"Input:  {self.input_dir}")
@@ -210,17 +240,19 @@ class DocumentEmbedder:
 
 
 def main():
-    embedder = DocumentEmbedder()
+    embedder = GuideEmbedder()
 
     if not embedder.input_dir.exists():
-        print(f"Error: Input directory {embedder.input_dir} does not exist")
-        sys.exit(1)
+        print(f"Creating game guides directory: {embedder.input_dir}")
+        embedder.input_dir.mkdir(parents=True, exist_ok=True)
+        print("Add guide files (.md, .txt, etc.) to that directory and run again.")
+        sys.exit(0)
 
     try:
         response = requests.get(f"{embedder.ollama_url}/api/tags", timeout=5)
         response.raise_for_status()
     except Exception:
-        print("Error: Cannot connect to Ollama. Please ensure Ollama is running.")
+        print("Error: Cannot connect to Ollama.")
         print("Start Ollama with: ollama serve")
         sys.exit(1)
 

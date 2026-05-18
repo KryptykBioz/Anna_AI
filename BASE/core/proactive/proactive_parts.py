@@ -99,7 +99,7 @@ What you are doing this cycle and why. (e.g. "Searching memory for recent topics
 - ACTION mode handles command construction and parameters
 - When no tools are needed and transitioning away from proactive: `[]`
 - NEVER output null, placeholder strings, or omit the actions block entirely
-- You MUST include at least one tool unless transitioning to reflective or reactive mode
+- When in proactive mode, you MUST include at least one tool in the actions block.
 </output_format>
 """
 

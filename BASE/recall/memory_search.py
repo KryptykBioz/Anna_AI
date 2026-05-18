@@ -25,38 +25,42 @@ class MemorySearch:
     """Search personality embeddings for thought and response examples"""
     
     __slots__ = (
-        'logger', 'memory_manager', 'memory_dir', 'thought_examples_dir',
-        'response_examples_dir', 'thought_embeddings', 'response_embeddings',
+        'logger', 'memory_manager', 'memory_dir', 'personality_embeddings_dir',
+        'thought_embeddings', 'response_embeddings',
         'ollama_url', 'embed_model', 'config', '_chunk_size'
     )
 
     def __init__(self, memory_dir_or_manager: Optional[Any] = None, logger=None, config=None):
-            self.logger  = logger
-            self.memory_manager = None
-            self.config  = config
+        self.logger = logger
+        self.memory_manager = None
+        self.config = config
 
-            max_chars        = max(50, getattr(config, 'MAX_TOOL_RESULT_CHARS', 1000)) if config else 1000
-            n_results        = max(1,  getattr(config, 'MAX_TOOL_RESULTS',       3))   if config else 3
-            self._chunk_size = max(50, max_chars // n_results)
+        max_chars        = max(50, getattr(config, 'MAX_TOOL_RESULT_CHARS', 1000)) if config else 1000
+        n_results        = max(1,  getattr(config, 'MAX_TOOL_RESULTS',       3))   if config else 3
+        self._chunk_size = max(50, max_chars // n_results)
 
-            memory_dir = self._resolve_memory_dir(memory_dir_or_manager)
+        memory_dir = self._resolve_memory_dir(memory_dir_or_manager)
+        self.memory_dir = Path(memory_dir) if memory_dir else None
 
-            self.memory_dir = Path(memory_dir) if memory_dir else None
+        # memory_dir resolves to base_files/; .parent is base_memory/
+        if self.memory_dir:
+            self.personality_embeddings_dir = (
+                self.memory_dir.parent / "base_personality" / "embeddings"
+            )
+        else:
+            script_dir = Path(__file__).parent
+            self.personality_embeddings_dir = (
+                script_dir.parents[1]
+                / "personality" / "base_memory" / "base_personality" / "embeddings"
+            )
 
-            if self.memory_dir:
-                self.thought_examples_dir  = self.memory_dir / "thought_examples"
-                self.response_examples_dir = self.memory_dir / "response_examples"
-            else:
-                self.thought_examples_dir  = None
-                self.response_examples_dir = None
+        self.thought_embeddings  = {}
+        self.response_embeddings = {}
 
-            self.thought_embeddings  = {}
-            self.response_embeddings = {}
+        self.ollama_url  = "http://localhost:11434"
+        self.embed_model = "nomic-embed-text"
 
-            self.ollama_url  = "http://localhost:11434"
-            self.embed_model = "nomic-embed-text"
-
-            self._load_embeddings()
+        self._load_embeddings()
     
     def _resolve_memory_dir(self, memory_input: Optional[Any]) -> Optional[Path]:
         if memory_input is None:
@@ -90,54 +94,36 @@ class MemorySearch:
         return base_dir / "personality" / "base_memory" / "base_files"
     
     def _load_embeddings(self):
-        """
-        Load all embedding files from disk
-        
-        Loads from personality/base_memory/base_files/embeddings/
-        """
-        if not self.memory_dir or not self.memory_dir.exists():
+        if not self.personality_embeddings_dir or not self.personality_embeddings_dir.exists():
             if self.logger:
                 self.logger.warning(
-                    f"[MemorySearch] Memory directory not found: {self.memory_dir}"
+                    f"[MemorySearch] Personality embeddings dir not found: {self.personality_embeddings_dir}"
                 )
             return
-        
+
         if self.logger:
             self.logger.system("[MemorySearch] Loading personality embeddings...")
-        
-        # Load thought examples
-        if self.thought_examples_dir and self.thought_examples_dir.exists():
-            for json_file in self.thought_examples_dir.glob("*.json"):
-                try:
-                    with open(json_file, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                        self.thought_embeddings[json_file.stem] = data
-                        if self.logger:
-                            self.logger.system(
-                                f"[MemorySearch] Loaded thought examples: {json_file.name} "
-                                f"({data['total_chunks']} chunks)"
-                            )
-                except Exception as e:
-                    if self.logger:
-                        self.logger.warning(f"[MemorySearch] Failed to load {json_file.name}: {e}")
-        
-        # Load response examples
-        if self.response_examples_dir and self.response_examples_dir.exists():
-            for json_file in self.response_examples_dir.glob("*.json"):
-                try:
-                    with open(json_file, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                        self.response_embeddings[json_file.stem] = data
-                        if self.logger:
-                            self.logger.system(
-                                f"[MemorySearch] Loaded response examples: {json_file.name} "
-                                f"({data['total_chunks']} chunks)"
-                            )
-                except Exception as e:
-                    if self.logger:
-                        self.logger.warning(f"[MemorySearch] Failed to load {json_file.name}: {e}")
-    
-    # Add these methods to the MemorySearch class in memory_search.py
+
+        for json_file in self.personality_embeddings_dir.glob("*.json"):
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+
+                stage = data.get('processing_stage', 'response')
+                chunk_count = data.get('total_chunks', 0)
+
+                if stage == 'thought':
+                    self.thought_embeddings[json_file.stem] = data
+                else:
+                    self.response_embeddings[json_file.stem] = data
+
+                if self.logger:
+                    self.logger.system(
+                        f"[MemorySearch] Loaded {stage} embeddings: {json_file.name} ({chunk_count} chunks)"
+                    )
+            except Exception as e:
+                if self.logger:
+                    self.logger.warning(f"[MemorySearch] Failed to load {json_file.name}: {e}")
 
     def search_medium_memory(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
             if not self.memory_manager:
@@ -427,81 +413,53 @@ class MemorySearch:
         query: str,
         embeddings_dict: Dict,
         k: int = 3,
-        min_similarity: float = 0.3
+        min_similarity: float = 0.3,
+        mode_filter: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """
-        Search embeddings using combined keyword + similarity matching
-        
-        Args:
-            query: Search query text
-            embeddings_dict: Dictionary of loaded embeddings
-            k: Number of results to return
-            min_similarity: Minimum similarity threshold
-        
-        Returns:
-            List of top k matching chunks
-        """
         if not embeddings_dict:
             return []
-        
-        # Get query embedding
+
         query_embedding = self.get_embedding_vector(query)
-        if not query_embedding:
-            # Fallback to keyword-only search
-            query_embedding = None
-        
-        # Extract keywords from query
-        query_keywords = query.lower().split()
-        
+        query_keywords  = query.lower().split()
+
         results = []
-        
-        # Search all embeddings
+
         for source_name, embedding_data in embeddings_dict.items():
-            chunks = embedding_data.get('chunks', [])
-            
-            for chunk in chunks:
-                # Skip summaries for now (they're not actual examples)
-                if chunk.get('metadata', {}).get('type') == 'stage_summary':
+            for chunk in embedding_data.get('chunks', []):
+                chunk_meta = chunk.get('metadata', {})
+
+                chunk_type = chunk_meta.get('type', '')
+                if chunk_type in ('stage_summary', 'thought_summary', 'response_summary'):
                     continue
-                
-                # Skip if no embedding
-                if 'embedding' not in chunk:
+
+                if not chunk.get('embedding'):
                     continue
-                
-                # Skip if embedding is empty
-                if not chunk['embedding']:
-                    continue
-                
-                # Calculate similarity score
+
+                if mode_filter:
+                    chunk_mode = chunk_meta.get('mode', '')
+                    if chunk_mode and chunk_mode != mode_filter:
+                        continue
+
                 similarity = 0.0
-                
-                # Vector similarity (if we have query embedding)
-                if query_embedding and 'embedding' in chunk:
+                if query_embedding:
                     try:
                         similarity = self._cosine_similarity(query_embedding, chunk['embedding'])
                     except Exception as e:
                         if self.logger:
                             self.logger.debug(f"Similarity calculation error: {e}")
-                        similarity = 0.0
-                
-                # Keyword match score (weight: 0.3)
-                chunk_keywords = chunk.get('metadata', {}).get('keywords', [])
-                keyword_score = self._keyword_match_score(query_keywords, chunk_keywords)
-                
-                # Combined score: 70% similarity + 30% keyword match
+
+                keyword_score  = self._keyword_match_score(query_keywords, chunk_meta.get('keywords', []))
                 combined_score = (similarity * 0.7) + (keyword_score * 0.3)
-                
+
                 if combined_score >= min_similarity:
-                    result = {
-                        'text': chunk['text'],
-                        'metadata': chunk.get('metadata', {}),
+                    results.append({
+                        'text':       chunk['text'],
+                        'metadata':   chunk_meta,
                         'similarity': combined_score,
-                        'source': source_name,
-                        'hash': chunk.get('hash', '')
-                    }
-                    results.append(result)
-        
-        # Sort by similarity and return top k
+                        'source':     source_name,
+                        'hash':       chunk.get('hash', '')
+                    })
+
         results.sort(key=lambda x: x['similarity'], reverse=True)
         return results[:k]
     
@@ -509,58 +467,40 @@ class MemorySearch:
         self,
         context: str,
         k: int = 3,
-        min_similarity: float = 0.3
+        min_similarity: float = 0.3,
+        mode_filter: Optional[str] = None
     ) -> str:
-        """
-        Retrieve thought examples for interpretation/reactive thinking
-        
-        Args:
-            context: Context query (combined thoughts + events)
-            k: Number of examples to return
-            min_similarity: Minimum similarity threshold
-        
-        Returns:
-            Formatted examples string or empty string
-        """
         results = self._search_embeddings(
             query=context,
             embeddings_dict=self.thought_embeddings,
             k=k,
-            min_similarity=min_similarity
+            min_similarity=min_similarity,
+            mode_filter=mode_filter
         )
-        
+
         if not results:
             return ""
-        
+
         return self._format_examples(results, stage='thought')
     
     def get_response_generation_examples(
         self,
         context: str,
         k: int = 3,
-        min_similarity: float = 0.3
+        min_similarity: float = 0.3,
+        mode_filter: Optional[str] = None
     ) -> str:
-        """
-        Retrieve response examples for responsive output generation
-        
-        Args:
-            context: Context query (combined thoughts + user input)
-            k: Number of examples to return
-            min_similarity: Minimum similarity threshold
-        
-        Returns:
-            Formatted examples string or empty string
-        """
         results = self._search_embeddings(
             query=context,
             embeddings_dict=self.response_embeddings,
             k=k,
-            min_similarity=min_similarity
+            min_similarity=min_similarity,
+            mode_filter=mode_filter
         )
-        
+
         if not results:
             return ""
-        
+
         return self._format_examples(results, stage='response')
     
     def _format_examples(self, results: List[Dict[str, Any]], stage: str = 'thought') -> str:
