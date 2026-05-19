@@ -92,7 +92,7 @@ VENV_DIR    = SCRIPT_DIR / "venv"
 VENV_PY     = VENV_DIR / "Scripts" / "python.exe"
 VENV_PIP    = VENV_DIR / "Scripts" / "pip.exe"
 REQ_FILE    = SCRIPT_DIR / "requirements.txt"
-ENV_TMPL    = SCRIPT_DIR / "_env.template"
+ENV_TMPL    = SCRIPT_DIR / ".env.template"
 ENV_FILE    = SCRIPT_DIR / ".env"
 
 RESULTS: dict = {}          # collects pass/fail for final summary
@@ -235,7 +235,7 @@ def install_deps():
         info("Installing requirements.txt (this may take 10-20 minutes)...")
         tip("Large downloads: TTS, faster-whisper, numpy, scipy, etc.")
         try:
-            run(f'"{VENV_PIP}" install -r "{REQ_FILE}" --quiet', check=True)
+            run(f'"{VENV_PIP}" install -r "{REQ_FILE}"', check=True)
             ok("requirements.txt installed")
         except subprocess.CalledProcessError:
             warn("Some packages may have failed — check output above")
@@ -300,6 +300,7 @@ def setup_gpu(gpu_found: bool, is_50_series: bool) -> bool:
         blank()
         print(c(Y,  "  Exit this installer, install compatible PyTorch and PyAudio"))
         print(c(Y,  "  packages into the venv, then re-run to continue."))
+        print(c(Y,  "  OR continue in CPU-only mode (Tools utilizing GPU will only run on CPU and may be slow)."))
         blank()
 
         if not ask("Continue in CPU-only mode?", default="n"):
@@ -446,9 +447,14 @@ def setup_ollama(ollama_found: bool):
         RESULTS["ollama"] = False
         return
 
-    # Start Ollama if not running
     info("Starting Ollama service...")
-    run("ollama start", check=False)
+    subprocess.Popen(
+        "ollama serve",
+        shell=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+    )
     time.sleep(3)
 
     _pull_models()
@@ -522,8 +528,8 @@ def setup_env():
 
     if ENV_FILE.exists():
         content = ENV_FILE.read_text(encoding="utf-8")
-        if "Injected by INSTALL.py" in content:
-            ok(".env already configured by installer — skipping")
+        if "Configured by INSTALL.py" in content:
+            ok(".env already configured by installer -- skipping")
             RESULTS["env"] = True
             return
         ok(f".env exists (not previously configured by installer)")
@@ -531,15 +537,10 @@ def setup_env():
             RESULTS["env"] = True
             return
 
-    if ENV_TMPL.exists():
-        shutil.copy2(ENV_TMPL, ENV_FILE)
-        info("Copied _env.template -> .env")
-    else:
-        warn("_env.template not found — generating minimal .env")
-        _write_minimal_env()
+    if not ENV_TMPL.exists():
+        warn("_env.template not found — cannot create .env")
         return
 
-    # Prompt for VRAM tier to set sane defaults
     blank()
     print(c(W, "  Select your GPU VRAM tier for Ollama tuning:"))
     print(c(W, "    1) 8GB  VRAM  (single GPU, lower context)"))
@@ -556,47 +557,80 @@ def setup_env():
     oh     = oh_map.get(tier, "1024")
     models = models_map.get(tier, "2")
 
-    # Inject uncommented Ollama performance block at top of .env
-    perf_block = f"""
-# ── Injected by INSTALL.py ────────────────────────────────────────────────
-OLLAMA_NUM_PARALLEL=1
-OLLAMA_CONTEXT_LENGTH={ctx}
-OLLAMA_FLASH_ATTENTION=true
-CUDA_VISIBLE_DEVICES=0
-OLLAMA_GPU_OVERHEAD={oh}
-OLLAMA_KEEP_ALIVE=24h
-OLLAMA_LOAD_TIMEOUT=5m
-OLLAMA_MAX_QUEUE=128
-OLLAMA_NUM_THREADS=6
-OLLAMA_MAX_LOADED_MODELS={models}
-OLLAMA_CONCURRENT_REQUESTS=1
-OLLAMA_ORIGINS=*
-OLLAMA_DEBUG=false
-# ─────────────────────────────────────────────────────────────────────────
-"""
-    content = ENV_FILE.read_text(encoding="utf-8")
-    ENV_FILE.write_text(perf_block + content, encoding="utf-8")
+    # Keys to uncomment and optionally override with tier values
+    # Maps uncommented key -> value to set (None = use template default)
+    ollama_overrides = {
+        "OLLAMA_NUM_PARALLEL":         "1",
+        "OLLAMA_CONTEXT_LENGTH":       ctx,
+        "OLLAMA_FLASH_ATTENTION":      "true",
+        "CUDA_VISIBLE_DEVICES":        "0",
+        "OLLAMA_GPU_OVERHEAD":         oh,
+        "OLLAMA_KEEP_ALIVE":           "24h",
+        "OLLAMA_LOAD_TIMEOUT":         "5m",
+        "OLLAMA_MAX_QUEUE":            "128",
+        "OLLAMA_NUM_THREADS":          "6",
+        "OLLAMA_MAX_LOADED_MODELS":    models,
+        "OLLAMA_CONCURRENT_REQUESTS":  "1",
+        "OLLAMA_ORIGINS":              "*",
+        "OLLAMA_DEBUG":                "false",
+        # AGENT_* variants
+        "AGENT_OLLAMA_KEEP_ALIVE":           "24h",
+        "AGENT_OLLAMA_NUM_PARALLEL":         "1",
+        "AGENT_OLLAMA_MAX_LOADED_MODELS":    models,
+        "AGENT_OLLAMA_CONCURRENT_REQUESTS":  "1",
+    }
+
+    lines = ENV_TMPL.read_text(encoding="utf-8").splitlines()
+    out   = ["# Configured by INSTALL.py"]
+
+    for line in lines:
+        stripped = line.lstrip("# ").strip()
+        if "=" in stripped:
+            key = stripped.split("=", 1)[0].strip()
+            if key in ollama_overrides:
+                val = ollama_overrides[key]
+                out.append(f"{key}={val}")
+                continue
+        out.append(line)
+
+    ENV_FILE.write_text("\n".join(out) + "\n", encoding="utf-8")
     ok(f".env configured (VRAM tier {tier}: ctx={ctx}, max_models={models})")
     RESULTS["env"] = True
 
+def setup_identity():
+    section("AGENT IDENTITY")
 
-def _write_minimal_env():
-    content = """# Anna AI - Minimal .env (generated by INSTALL.py)
-OLLAMA_NUM_PARALLEL=1
-OLLAMA_CONTEXT_LENGTH=8192
-OLLAMA_FLASH_ATTENTION=true
-CUDA_VISIBLE_DEVICES=0
-OLLAMA_GPU_OVERHEAD=1024
-OLLAMA_KEEP_ALIVE=24h
-OLLAMA_MAX_LOADED_MODELS=2
-OLLAMA_CONCURRENT_REQUESTS=1
-OLLAMA_ORIGINS=*
-OLLAMA_DEBUG=false
-"""
+    print(c(W, "  These values set the agent's name and how it addresses you."))
+    print(c(W, "  They can be changed later in .env or personality/bot_info.py."))
+    blank()
+
+    agent_name = ask_str("Agent name", default="Anna")
+    user_name  = ask_str("Your name (how the agent addresses you)", default="User")
+
+    if not ENV_FILE.exists():
+        warn(".env not found -- skipping identity configuration")
+        RESULTS["identity"] = False
+        return
+
+    content = ENV_FILE.read_text(encoding="utf-8")
+
+    for key, val in (("AGENT_BOT_NAME", agent_name), ("AGENT_BOT_USERNAME", user_name)):
+        import re
+        # Replace existing uncommented key
+        pattern = re.compile(rf"^{key}=.*$", re.MULTILINE)
+        if pattern.search(content):
+            content = pattern.sub(f"{key}={val}", content)
+        # Uncomment commented key
+        elif re.search(rf"^#\s*{key}=", content, re.MULTILINE):
+            content = re.sub(rf"^#\s*{key}=.*$", f"{key}={val}", content, flags=re.MULTILINE)
+        # Append if not present at all
+        else:
+            content = content.rstrip("\n") + f"\n{key}={val}\n"
+
     ENV_FILE.write_text(content, encoding="utf-8")
-    ok(".env written (minimal defaults)")
-    RESULTS["env"] = True
-
+    ok(f"Agent name: {agent_name}")
+    ok(f"User name:  {user_name}")
+    RESULTS["identity"] = True
 
 # ═════════════════════════════════════════════════════════════════════════════
 # STEP 7 – Optional: VB-Audio / Tala cables
@@ -959,6 +993,8 @@ def main():
             setup_audio()
 
     setup_tools(git_found)
+
+    setup_identity()
 
     # ── Final verification ────────────────────────────────────────────────
     verify()

@@ -1,1 +1,2 @@
-TMP FILE
+Install optional tools to this directory using the INSTALL.bat script at the project root, or clone tool directories directly to the ANNA_AI/BASE/tools/installed/ directory directly from https://github.com/KryptykBioz
+**Ensure tool directories are named with the tool name only (i.e. wiki_search/ not ANNA-tool-wiki_search/**

@@ -82,7 +82,7 @@ python copy_gpu_packages.py
 # 7. Configure agent
 # Edit personality/bot_info.py with your settings and preferences:
 #   - agentname = "Anna"
-#   - username = "Sir"
+#   - username = "User"
 #   - thoughtmodel = "gemma4:latest"
 #   - responsemodel = "gemma4:latest"
 #   - toolmodel = "gemma4:latest"
@@ -440,7 +440,7 @@ Installation time: 10-20 minutes depending on internet speed.
 ```python
 # Bot and User Information
 agentname = "Anna"  # Change to your agent's name
-username = "Sir"  # How the agent addresses you
+username = "User"  # How the agent addresses you
 game_username = "Player"  # In-game username reference
 
 # Model Configuration (using Ollama)
@@ -1918,5 +1918,5 @@ For technical support:
 
 [Note]: This setup guide is maintained for RTX 50-series GPU compatibility. For other GPU architectures, standard PyPI packages may be used without the special GPU package copy procedure.
 
-**Last Updated**: January 2, 2026
+**Last Updated**: 2026 May 05
 **Compatible With**: Python 3.11.9, PyTorch 2.10.0a0, Transformers 4.38.2

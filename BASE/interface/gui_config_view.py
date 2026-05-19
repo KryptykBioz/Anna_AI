@@ -297,7 +297,7 @@ class ConfigView:
                             self.bot_info_data.get('agentname','Anna'),
                             tooltip="How the bot refers to itself")
         self.add_input_field(frame,"User Name","username",
-                            self.bot_info_data.get('username','Sir'),
+                            self.bot_info_data.get('username','User'),
                             tooltip="How bot refers to the user")
         self.add_input_field(frame,"Game Username","game_username",
                             self.bot_info_data.get('game_username','Player'),
