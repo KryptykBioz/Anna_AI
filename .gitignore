@@ -71,9 +71,6 @@ personality/memory/long_memory.json
 personality/memory/medium_memory.json
 personality/memory/short_memory.json
 
-# Installed (optional) Tools
-installed/
-
 # NODE MODULES
 node_modules/
 
