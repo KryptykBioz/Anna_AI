@@ -15,7 +15,6 @@ from BASE.core.reflective.reflective_constructor import ReflectiveConstructor
 from BASE.core.proactive.proactive_constructor import ProactiveConstructor
 from BASE.core.action.action_constructor import ActionConstructor
 
-from BASE.tools.installed.discord_bot import config
 from BASE.config.bot_info import username, agentname
 
 
