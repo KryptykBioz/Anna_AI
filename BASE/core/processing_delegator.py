@@ -314,21 +314,25 @@ class ProcessingDelegator:
             context_parts.insert(0, memory_context)
             self.logger.memory("[Memory] Retrieved context")
         
-        # STAGE 1: THOUGHT PROCESSING
-        await self.thought_processor.process_thoughts(context_parts=context_parts)
-        
-        # Process tool results
-        await self.thought_processor.process_thoughts(context_parts=context_parts)
-        
-        # STAGE 2: CHECK IF RESPONSE NEEDED
-        should_respond = self.thought_processor.thought_buffer.response_trigger.should_respond()
-        
-        if not should_respond:
-            # self.logger.system("[Response] Agent said <speak>NO</speak> - no response needed")
-            return None
-        
-        # self.logger.system("[Response] Agent said <speak>YES</speak> - generating response")
-        
+        # STAGE 1: THOUGHT PROCESSING (Continuous Thinking only)
+        # When disabled, skip all cognitive mode processing and go straight to
+        # the responsive prompt, which forces a spoken reply every time.
+        continuous_thinking_active = (
+            self.thought_processor.cognitive_loop is not None
+            and self.thought_processor.cognitive_loop.is_running
+        )
+
+        if continuous_thinking_active:
+            await self.thought_processor.process_thoughts(context_parts=context_parts)
+            await self.thought_processor.process_thoughts(context_parts=context_parts)
+
+            # STAGE 2: RESPECT AGENT'S <speak> DECISION
+            if not self.thought_processor.thought_buffer.response_trigger.should_respond():
+                return None
+        else:
+            # Prompt-response mode: clear any stale trigger, skip directly to response
+            self.thought_processor.thought_buffer.response_trigger.clear()
+
         # STAGE 3: GENERATE RESPONSE (now supports streaming)
         response = await self._generate_responsive_response(
             user_text=original_input,
