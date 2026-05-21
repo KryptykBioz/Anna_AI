@@ -725,7 +725,6 @@ TOOL_REPOS = [
     "twitch_chat",
     "discord_chat",
     "memory_search",
-    "unity_animation",
 ]
 
 def _tool_checkbox_prompt() -> list[str]:
