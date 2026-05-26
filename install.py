@@ -216,7 +216,48 @@ def setup_venv():
 # ═════════════════════════════════════════════════════════════════════════════
 # STEP 3 – Dependencies
 # ═════════════════════════════════════════════════════════════════════════════
-def install_deps():
+
+# Packages that pip may install as dependencies of TTS/faster-whisper/vosk
+# which must be removed before the Blackwell custom wheels are installed.
+_BLACKWELL_OWNED = [
+    "torch", "torchaudio", "torchvision",
+    "pyaudio", "PyAudio",
+]
+
+
+def _purge_conflicting_packages():
+    """Uninstall any pip-managed torch/pyaudio packages before Blackwell wheel install."""
+    info("Checking for conflicting torch/pyaudio packages...")
+    to_remove = []
+    for pkg in _BLACKWELL_OWNED:
+        res = run(f'"{VENV_PIP}" show {pkg}', capture=True, check=False)
+        if res.returncode == 0:
+            location_line = next(
+                (l for l in res.stdout.splitlines() if l.startswith("Location:")), ""
+            )
+            to_remove.append(pkg)
+            tip(f"  Found: {pkg} at {location_line.replace('Location:', '').strip()}")
+
+    if not to_remove:
+        ok("No conflicting packages found")
+        return
+
+    warn(f"Removing {len(to_remove)} conflicting package(s) before Blackwell wheel install...")
+    pkg_list = " ".join(to_remove)
+    run(f'"{VENV_PIP}" uninstall -y {pkg_list}', check=False)
+
+    still_present = []
+    for pkg in to_remove:
+        if run_ok(f'"{VENV_PIP}" show {pkg}'):
+            still_present.append(pkg)
+
+    if still_present:
+        warn(f"Could not remove: {', '.join(still_present)} — wheel install may conflict")
+    else:
+        ok("Conflicting packages removed")
+
+
+def install_deps(is_50_series: bool = False):
     section("PYTHON DEPENDENCIES")
 
     if not REQ_FILE.exists():
@@ -227,13 +268,18 @@ def install_deps():
     run(f'"{VENV_PY}" -m pip install --upgrade pip --quiet', check=True)
     ok("pip upgraded")
 
-    # Check if core packages already present before doing the full install
     core_probe = "import numpy, sounddevice, faster_whisper, TTS, discord, websockets"
-    if run_ok(f'"{VENV_PY}" -c "{core_probe}"'):
+    already_ok = run_ok(f'"{VENV_PY}" -c "{core_probe}"')
+
+    if already_ok and not is_50_series:
         ok("Core packages already installed — skipping requirements.txt")
     else:
-        info("Installing requirements.txt (this may take 10-20 minutes)...")
-        tip("Large downloads: TTS, faster-whisper, numpy, scipy, etc.")
+        if is_50_series:
+            info("Installing requirements.txt — torch/pyaudio will be replaced by Blackwell wheels after...")
+            tip("TTS and faster-whisper will pull in CPU torch as a dep; it will be purged next step.")
+        else:
+            info("Installing requirements.txt (this may take 10-20 minutes)...")
+            tip("Large downloads: TTS, faster-whisper, numpy, scipy, etc.")
         try:
             run(f'"{VENV_PIP}" install -r "{REQ_FILE}"', check=True)
             ok("requirements.txt installed")
@@ -242,7 +288,6 @@ def install_deps():
             warn("Re-running with verbose output for diagnostics...")
             run(f'"{VENV_PIP}" install -r "{REQ_FILE}"', check=False)
 
-    # Check transformers version before pinning
     tfm_probe = 'import transformers; assert transformers.__version__ == "4.38.2", transformers.__version__'
     if run_ok(f'"{VENV_PY}" -c "{tfm_probe}"'):
         ok("transformers==4.38.2 already installed — skipping pin")
@@ -258,23 +303,108 @@ def install_deps():
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# STEP 4 – GPU packages (RTX 50-series)
+# STEP 4 – GPU packages (RTX 50-series / Blackwell sm_120 aware)
 # ═════════════════════════════════════════════════════════════════════════════
+
+BLACKWELL_WHEELS_DIR = SCRIPT_DIR / "blackwell_sm120_wheels"
+BLACKWELL_PARTS_DIR  = BLACKWELL_WHEELS_DIR / "wheel_parts"
+BLACKWELL_ASSEMBLED  = BLACKWELL_WHEELS_DIR / "assembled"
+
+_WHEEL_INSTALL_ORDER = ["torch", "torchaudio", "torchvision", "PyAudio"]
+
+
+def _assemble_blackwell_wheels() -> list[Path]:
+    import hashlib, json as _json
+
+    manifest_path = BLACKWELL_PARTS_DIR / "manifest.json"
+    if not manifest_path.exists():
+        raise RuntimeError(f"manifest.json not found in {BLACKWELL_PARTS_DIR}")
+
+    manifest = _json.loads(manifest_path.read_text())
+    BLACKWELL_ASSEMBLED.mkdir(parents=True, exist_ok=True)
+
+    assembled = []
+    for entry in manifest["files"]:
+        out_path = BLACKWELL_ASSEMBLED / entry["original_filename"]
+
+        if out_path.exists() and out_path.stat().st_size == entry["original_size"]:
+            h = hashlib.sha256()
+            with open(out_path, "rb") as f:
+                while buf := f.read(1 << 20):
+                    h.update(buf)
+            if h.hexdigest() == entry["original_sha256"]:
+                ok(f"  Already assembled: {entry['original_filename']}")
+                assembled.append(out_path)
+                continue
+            warn(f"  Hash mismatch on existing file — reassembling: {entry['original_filename']}")
+            out_path.unlink()
+
+        info(f"  Assembling: {entry['original_filename']} ({entry['part_count']} parts)")
+        parts = sorted(entry["parts"], key=lambda p: p["index"])
+
+        with open(out_path, "wb") as out_f:
+            for part in parts:
+                part_path = BLACKWELL_PARTS_DIR / part["filename"]
+                if not part_path.exists():
+                    raise RuntimeError(f"Missing part: {part['filename']}")
+                data = part_path.read_bytes()
+                actual = hashlib.sha256(data).hexdigest()
+                if actual != part["sha256"]:
+                    raise RuntimeError(
+                        f"Part hash mismatch: {part['filename']}\n"
+                        f"  expected {part['sha256']}\n  got      {actual}"
+                    )
+                out_f.write(data)
+
+        h = hashlib.sha256()
+        with open(out_path, "rb") as f:
+            while buf := f.read(1 << 20):
+                h.update(buf)
+        final_hash = h.hexdigest()
+        if final_hash != entry["original_sha256"]:
+            raise RuntimeError(
+                f"Final hash mismatch: {entry['original_filename']}\n"
+                f"  expected {entry['original_sha256']}\n  got      {final_hash}"
+            )
+        ok(f"  [Confirmed] {entry['original_filename']} ({out_path.stat().st_size / 1e6:.1f} MB)")
+        assembled.append(out_path)
+
+    return assembled
+
+
+def _install_blackwell_wheels(assembled: list[Path]):
+    wheel_map = {p.name.split("-")[0].lower(): p for p in assembled}
+
+    install_order = []
+    seen = set()
+    for key in _WHEEL_INSTALL_ORDER:
+        match = wheel_map.get(key.lower())
+        if match:
+            install_order.append(match)
+            seen.add(match)
+    for p in assembled:
+        if p not in seen:
+            install_order.append(p)
+
+    for whl in install_order:
+        info(f"  Installing: {whl.name}")
+        try:
+            run(f'"{VENV_PIP}" install "{whl}" --no-deps --force-reinstall --quiet', check=True)
+            ok(f"  Installed: {whl.name}")
+        except subprocess.CalledProcessError:
+            warn(f"  --no-deps install failed, retrying with deps: {whl.name}")
+            run(f'"{VENV_PIP}" install "{whl}" --force-reinstall --quiet', check=False)
+
+
 def setup_gpu(gpu_found: bool, is_50_series: bool) -> bool:
-    """
-    Returns True if a working (possibly CUDA) torch is available after this step,
-    or False if continuing in CPU-only mode.
-    """
     section("GPU / PYTORCH SETUP")
 
-    # ── Already have a working torch with CUDA ────────────────────────────
     torch_probe = 'import torch; assert torch.cuda.is_available(), "no cuda"'
     if run_ok(f'"{VENV_PY}" -c "{torch_probe}"'):
         ok("PyTorch with CUDA already installed — skipping GPU package step")
         _verify_torch()
         return True
 
-    # ── Case 3: No GPU ─────────────────────────────────────────────────────
     if not gpu_found:
         warn("No NVIDIA GPU detected — installing CPU-only PyTorch.")
         tip("TTS, Whisper, and vision will run on CPU. Image generation unavailable.")
@@ -287,25 +417,48 @@ def setup_gpu(gpu_found: bool, is_50_series: bool) -> bool:
         RESULTS["torch"] = False
         return False
 
-    # ── Case 1: RTX 50-series — sm_120 not supported by any PyPI build ────
     if is_50_series:
         warn("RTX 50-series GPU (sm_120 / Blackwell) detected.")
-        warn("No public PyTorch release currently supports sm_120.")
+        blank()
+
+        has_parts = (BLACKWELL_PARTS_DIR / "manifest.json").exists()
+
+        if has_parts:
+            info("Blackwell wheel parts found — preparing install...")
+            blank()
+            _purge_conflicting_packages()
+            blank()
+            try:
+                info("Assembling wheels from parts...")
+                assembled = _assemble_blackwell_wheels()
+                blank()
+                info(f"Installing {len(assembled)} Blackwell wheel(s) into venv...")
+                _install_blackwell_wheels(assembled)
+                ok("Blackwell sm_120 wheels installed successfully")
+                _verify_torch()
+                RESULTS["torch"] = True
+                return True
+            except RuntimeError as e:
+                err(f"Wheel assembly failed: {e}")
+                blank()
+                warn("Falling back to manual options...")
+
+        blank()
+        print(c(W,  "  No compatible sm_120 wheel parts found in:"))
+        print(c(DIM, f"  {BLACKWELL_PARTS_DIR}"))
         blank()
         print(c(W,  "  To use GPU acceleration with Anna AI on an RTX 50-series card,"))
-        print(c(W,  "  compatible PyTorch and PyAudio wheels must be built or obtained"))
-        print(c(W,  "  separately before continuing."))
+        print(c(W,  "  download the blackwell_sm120_wheels repository and place it"))
+        print(c(W,  "  in the project root, then re-run this installer."))
         blank()
-        print(c(DIM, "  Refer to: ANNA_AI/Documentation/ for build instructions."))
+        print(c(DIM, "  https://github.com/KryptykBioz/pytorch-blackwell-sm120-wheels"))
         blank()
-        print(c(Y,  "  Exit this installer, install compatible PyTorch and PyAudio"))
-        print(c(Y,  "  packages into the venv, then re-run to continue."))
-        print(c(Y,  "  OR continue in CPU-only mode (Tools utilizing GPU will only run on CPU and may be slow)."))
+        print(c(Y,  "  OR continue in CPU-only mode (GPU tools will run on CPU and may be slow)."))
         blank()
 
         if not ask("Continue in CPU-only mode?", default="n"):
             info("Exiting installer.")
-            tip("Re-run INSTALL.bat after installing compatible GPU packages.")
+            tip("Re-run INSTALL.bat after placing Blackwell wheel parts in the project root.")
             sys.exit(0)
 
         warn("Continuing in CPU-only mode.")
@@ -320,7 +473,6 @@ def setup_gpu(gpu_found: bool, is_50_series: bool) -> bool:
         RESULTS["torch"] = False
         return False
 
-    # ── Case 2: Compatible NVIDIA GPU ─────────────────────────────────────
     info("Compatible NVIDIA GPU detected — installing PyTorch with CUDA 12.6...")
     try:
         run(f'"{VENV_PIP}" install torch torchvision torchaudio pyaudio '
@@ -333,81 +485,6 @@ def setup_gpu(gpu_found: bool, is_50_series: bool) -> bool:
 
     _verify_torch()
     return True
-
-
-def _copy_gpu_packages():
-    info("GPU package copy selected.")
-
-    # Check for pre-packed zip first
-    zip_path = SCRIPT_DIR / "gpu_packages.zip"
-    if zip_path.exists():
-        info(f"Found gpu_packages.zip at {zip_path}")
-        _extract_gpu_zip(zip_path)
-        return
-
-    src = ask_str("Path to working Anna_AI venv (e.g. C:\\Anna_AI\\venv\\Lib\\site-packages)")
-    src_path = Path(src)
-    if not src_path.exists():
-        err(f"Source path not found: {src_path}")
-        warn("Falling back to nightly PyTorch install")
-        _install_nightly_torch()
-        return
-
-    dest = VENV_DIR / "Lib" / "site-packages"
-    dest.mkdir(parents=True, exist_ok=True)
-
-    GPU_PACKAGES = [
-        "torch", "torchvision", "torchaudio",
-        "ctranslate2",
-    ]
-    GLOB_PATTERNS = ["nvidia*", "torch-*.dist-info", "torchvision-*.dist-info",
-                     "torchaudio-*.dist-info", "ctranslate2-*.dist-info",
-                     "PyAudio-*.dist-info", "pyaudio"]
-
-    copied = 0
-    for pkg in GPU_PACKAGES:
-        s = src_path / pkg
-        d = dest / pkg
-        if s.exists():
-            if d.exists():
-                shutil.rmtree(d)
-            info(f"Copying {pkg}...")
-            shutil.copytree(s, d)
-            copied += 1
-
-    for pattern in GLOB_PATTERNS:
-        for s in src_path.glob(pattern):
-            d = dest / s.name
-            try:
-                if s.is_dir():
-                    if d.exists():
-                        shutil.rmtree(d)
-                    shutil.copytree(s, d)
-                else:
-                    shutil.copy2(s, d)
-                copied += 1
-            except Exception as e:
-                warn(f"Could not copy {s.name}: {e}")
-
-    ok(f"Copied {copied} package(s)/directories")
-
-
-def _extract_gpu_zip(zip_path: Path):
-    import zipfile
-    dest = VENV_DIR / "Lib" / "site-packages"
-    dest.mkdir(parents=True, exist_ok=True)
-    info(f"Extracting gpu_packages.zip to {dest}...")
-    with zipfile.ZipFile(zip_path) as zf:
-        zf.extractall(dest)
-    ok("GPU packages extracted from zip")
-
-
-def _install_nightly_torch():
-    info("Installing PyTorch nightly (CUDA 12.6)...")
-    tip("This may take several minutes and ~4GB of downloads")
-    run(f'"{VENV_PIP}" install --pre torch torchvision torchaudio '
-        f'--index-url https://download.pytorch.org/whl/nightly/cu126', check=False)
-
 
 def _verify_torch(cpu_only: bool = False):
     if cpu_only:

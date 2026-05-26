@@ -20,7 +20,7 @@ This is a sophisticated agentic AI system built on Ollama that implements a two-
 - Reference document uploads
 - Custom lightweight Tkinter GUI with toggle controls, tool panels, system log display, and chat display
 - AI Panel of judges that automatically make optimizations to prompts and live-update the agent's prompting system
-- Instructions included for creating custom Pytorch and Pyaudio wheel builds for 50-series GPU (Blackwell sm_120)
+- Custom built Pytorch and Pyaudio wheels for 50-series GPU (Blackwell sm_120) compatibility, allowing utilization of hardware acceleration on modern 50-series Nvidia GPUs
 - Many optional tools including but not limited to: **Bing Search, Calculator, Calendar, Drawing Canvas, VS Code Extension, Dice Roller, Discord chat, DuckDuckGo Search, Game Guides, Screen Vision, Group Chat (other AI agents), Image Generator, Game Integrations (Minecraft, League of Legends, etc.), MCP Bridge, Memory Search, Notes, Reminders, Sound Effects, System Info, Twitch Livestream Chat, Unity Animator, User Details, Warudo Animator, Wikipedia Search, YouTube Livestream Chat**
 
 

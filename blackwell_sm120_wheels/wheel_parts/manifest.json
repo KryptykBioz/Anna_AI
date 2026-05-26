@@ -1,0 +1,67 @@
+{
+  "part_size_mb": 95,
+  "files": [
+    {
+      "original_filename": "PyAudio-0.2.14-cp311-cp311-win_amd64.whl",
+      "original_size": 164070,
+      "original_sha256": "bbeb01d36a2f472ae5ee5e1451cacc42112986abe622f735bb870a5db77cf903",
+      "part_count": 1,
+      "parts": [
+        {
+          "filename": "PyAudio-0.2.14-cp311-cp311-win_amd64.whl.part000",
+          "index": 0,
+          "size": 164070,
+          "sha256": "bbeb01d36a2f472ae5ee5e1451cacc42112986abe622f735bb870a5db77cf903"
+        }
+      ]
+    },
+    {
+      "original_filename": "torch-2.9.1-cp311-cp311-win_amd64.whl",
+      "original_size": 110973074,
+      "original_sha256": "0d06b30a9207b7c3516a9e0102114024755a07045f0c1d2f2a56b1819ac06bcb",
+      "part_count": 2,
+      "parts": [
+        {
+          "filename": "torch-2.9.1-cp311-cp311-win_amd64.whl.part000",
+          "index": 0,
+          "size": 99614720,
+          "sha256": "602907867908dfbcf2d81d8942cd58f6106747ff9fa8f2bc60dd4f5f1ae5bb92"
+        },
+        {
+          "filename": "torch-2.9.1-cp311-cp311-win_amd64.whl.part001",
+          "index": 1,
+          "size": 11358354,
+          "sha256": "fbf69f113d5069272f1f701a18dd3011397443e96fd28efe76cafc5a7a80353c"
+        }
+      ]
+    },
+    {
+      "original_filename": "torchaudio-2.9.1-cp311-cp311-win_amd64.whl",
+      "original_size": 664681,
+      "original_sha256": "b41339a71b186bad238d94cfb68d4c202db0033088a7b824ce5484674bf67057",
+      "part_count": 1,
+      "parts": [
+        {
+          "filename": "torchaudio-2.9.1-cp311-cp311-win_amd64.whl.part000",
+          "index": 0,
+          "size": 664681,
+          "sha256": "b41339a71b186bad238d94cfb68d4c202db0033088a7b824ce5484674bf67057"
+        }
+      ]
+    },
+    {
+      "original_filename": "torchvision-0.24.1-cp311-cp311-win_amd64.whl",
+      "original_size": 4037588,
+      "original_sha256": "a9308cdd37d8a42e14a3e7fd9d271830c7fecb150dd929b642f3c1460514599a",
+      "part_count": 1,
+      "parts": [
+        {
+          "filename": "torchvision-0.24.1-cp311-cp311-win_amd64.whl.part000",
+          "index": 0,
+          "size": 4037588,
+          "sha256": "a9308cdd37d8a42e14a3e7fd9d271830c7fecb150dd929b642f3c1460514599a"
+        }
+      ]
+    }
+  ]
+}
