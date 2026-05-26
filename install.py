@@ -487,25 +487,62 @@ def setup_gpu(gpu_found: bool, is_50_series: bool) -> bool:
     return True
 
 def _verify_torch(cpu_only: bool = False):
+    import os as _os
+    import tempfile
+
     if cpu_only:
         info("Verifying PyTorch (CPU-only)...")
-        probe = 'import torch; print(f"Version: {torch.__version__}"); print("CUDA: False")'
+        script = (
+            "import torch\n"
+            "print('Version:', torch.__version__)\n"
+            "print('CUDA: False')\n"
+        )
     else:
         info("Verifying PyTorch CUDA support...")
-        probe = (
-            'import torch; '
-            'print(f"CUDA: {torch.cuda.is_available()}"); '
-            'print(f"Version: {torch.__version__}"); '
-            'n=torch.cuda.device_count(); '
-            '[print(f"GPU {i}: {torch.cuda.get_device_name(i)}") for i in range(n)]'
+        script = (
+            "import torch\n"
+            "print('CUDA:', torch.cuda.is_available())\n"
+            "print('Version:', torch.__version__)\n"
+            "n = torch.cuda.device_count()\n"
+            "print('Device count:', n)\n"
+            "for i in range(n):\n"
+            "    print('GPU', i, ':', torch.cuda.get_device_name(i))\n"
         )
-    res = run(f'"{VENV_PY}" -c "{probe}"', capture=True, check=False)
+
+    cuda_paths = [
+        r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\bin\x64",
+        r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\bin",
+        r"C:\Program Files\NVIDIA\CUDNN\v9.16\bin\13.0",
+    ]
+    env = _os.environ.copy()
+    extra = ";".join(p for p in cuda_paths if _os.path.isdir(p))
+    if extra:
+        env["PATH"] = extra + ";" + env.get("PATH", "")
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tf:
+        tf.write(script)
+        tf_path = tf.name
+
+    try:
+        res = run(f'"{VENV_PY}" "{tf_path}"', capture=True, check=False, env=env)
+    finally:
+        try:
+            _os.unlink(tf_path)
+        except OSError:
+            pass
+
     if res.returncode == 0:
         for line in res.stdout.strip().splitlines():
             ok(f"  {line}")
         RESULTS["torch"] = not cpu_only and "CUDA: True" in res.stdout
     else:
         warn("PyTorch verification failed — check GPU drivers")
+        if res.stderr:
+            for line in res.stderr.strip().splitlines()[-10:]:
+                tip(f"  {line}")
+        if res.stdout:
+            for line in res.stdout.strip().splitlines():
+                tip(f"  {line}")
         RESULTS["torch"] = False
 
 
