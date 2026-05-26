@@ -2,64 +2,50 @@
   "part_size_mb": 95,
   "files": [
     {
-      "original_filename": "PyAudio-0.2.14-cp311-cp311-win_amd64.whl",
-      "original_size": 164070,
-      "original_sha256": "bbeb01d36a2f472ae5ee5e1451cacc42112986abe622f735bb870a5db77cf903",
+      "original_filename": "pyaudio-0.2.8-cp311-cp311-win_amd64.whl",
+      "original_size": 111265,
+      "original_sha256": "3eccfe1435a9ee5e143355f91dd32d887a22dad6adf8792b2978b97d79ee2733",
       "part_count": 1,
       "parts": [
         {
-          "filename": "PyAudio-0.2.14-cp311-cp311-win_amd64.whl.part000",
+          "filename": "pyaudio-0.2.8-cp311-cp311-win_amd64.whl.part000",
           "index": 0,
-          "size": 164070,
-          "sha256": "bbeb01d36a2f472ae5ee5e1451cacc42112986abe622f735bb870a5db77cf903"
+          "size": 111265,
+          "sha256": "3eccfe1435a9ee5e143355f91dd32d887a22dad6adf8792b2978b97d79ee2733"
         }
       ]
     },
     {
-      "original_filename": "torch-2.9.1-cp311-cp311-win_amd64.whl",
-      "original_size": 110973074,
-      "original_sha256": "0d06b30a9207b7c3516a9e0102114024755a07045f0c1d2f2a56b1819ac06bcb",
+      "original_filename": "torch-2.10.0a0+gitd4493c5-cp311-cp311-win_amd64.whl.whl",
+      "original_size": 181268886,
+      "original_sha256": "8c70726d579bb5abf577ccad32dcd3a4bd47281924ce1696ce96c4d4e5d80c70",
       "part_count": 2,
       "parts": [
         {
-          "filename": "torch-2.9.1-cp311-cp311-win_amd64.whl.part000",
+          "filename": "torch-2.10.0a0+gitd4493c5-cp311-cp311-win_amd64.whl.whl.part000",
           "index": 0,
           "size": 99614720,
-          "sha256": "602907867908dfbcf2d81d8942cd58f6106747ff9fa8f2bc60dd4f5f1ae5bb92"
+          "sha256": "795653855c4c1e9bd2522e346402be920e94fb74b0f41d2e5093d9ff565344e9"
         },
         {
-          "filename": "torch-2.9.1-cp311-cp311-win_amd64.whl.part001",
+          "filename": "torch-2.10.0a0+gitd4493c5-cp311-cp311-win_amd64.whl.whl.part001",
           "index": 1,
-          "size": 11358354,
-          "sha256": "fbf69f113d5069272f1f701a18dd3011397443e96fd28efe76cafc5a7a80353c"
+          "size": 81654166,
+          "sha256": "00e927a1a4a3aa2d5248a6ec528431061899ae5a78111e9a02fb4c0119e93554"
         }
       ]
     },
     {
       "original_filename": "torchaudio-2.9.1-cp311-cp311-win_amd64.whl",
-      "original_size": 664681,
-      "original_sha256": "b41339a71b186bad238d94cfb68d4c202db0033088a7b824ce5484674bf67057",
+      "original_size": 1166229,
+      "original_sha256": "1449d447871c8b809f93496a9cade4bc16d597e5f201918416982dbece5f32f6",
       "part_count": 1,
       "parts": [
         {
           "filename": "torchaudio-2.9.1-cp311-cp311-win_amd64.whl.part000",
           "index": 0,
-          "size": 664681,
-          "sha256": "b41339a71b186bad238d94cfb68d4c202db0033088a7b824ce5484674bf67057"
-        }
-      ]
-    },
-    {
-      "original_filename": "torchvision-0.24.1-cp311-cp311-win_amd64.whl",
-      "original_size": 4037588,
-      "original_sha256": "a9308cdd37d8a42e14a3e7fd9d271830c7fecb150dd929b642f3c1460514599a",
-      "part_count": 1,
-      "parts": [
-        {
-          "filename": "torchvision-0.24.1-cp311-cp311-win_amd64.whl.part000",
-          "index": 0,
-          "size": 4037588,
-          "sha256": "a9308cdd37d8a42e14a3e7fd9d271830c7fecb150dd929b642f3c1460514599a"
+          "size": 1166229,
+          "sha256": "1449d447871c8b809f93496a9cade4bc16d597e5f201918416982dbece5f32f6"
         }
       ]
     }
